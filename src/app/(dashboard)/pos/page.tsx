@@ -8,7 +8,7 @@ import { localDB } from '@/lib/db/local';
 import { supabase } from '@/lib/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
 import { Product, ProductVariant, HeldCart } from '@/lib/types';
-import { Html5Qrcode } from 'html5-qrcode';
+import QrScanner from 'qr-scanner';
 import { parseQRContent } from '@/lib/qr-parser';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { useToast } from '@/lib/contexts/ToastContext';
@@ -52,7 +52,8 @@ export default function POSPage() {
 
     // Scanner State
     const [isCameraActive, setIsCameraActive] = useState(true);
-    const scannerRef = useRef<Html5Qrcode | null>(null);
+    const scannerRef = useRef<QrScanner | null>(null);
+    const videoRef = useRef<HTMLVideoElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Checkout State
@@ -303,41 +304,32 @@ export default function POSPage() {
     };
 
     // --- QR SCANNER LOGIC ---
-    // Triggering a new commit for Vercel deployment test
     useEffect(() => {
         scannerLock.current = scannerLock.current.then(async () => {
+            if (!videoRef.current) return;
+            
             if (!scannerRef.current) {
-                scannerRef.current = new Html5Qrcode("qr-reader-permanent", {
-                    verbose: false,
-                    experimentalFeatures: {
-                        useBarCodeDetectorIfSupported: true
+                scannerRef.current = new QrScanner(
+                    videoRef.current,
+                    (result) => {
+                        onScanSuccess(result.data);
+                    },
+                    {
+                        returnDetailedScanResult: true,
+                        highlightScanRegion: true,
+                        highlightCodeOutline: true,
+                        maxScansPerSecond: 15,
                     }
-                });
+                );
             }
 
             if (!isCameraActive) {
-                if (scannerRef.current.isScanning) {
-                    await scannerRef.current.stop().catch(console.error);
-                }
+                scannerRef.current.stop();
             } else {
-                if (!scannerRef.current.isScanning) {
-                    try {
-                        await scannerRef.current.start(
-                            { facingMode: "environment" },
-                            {
-                                fps: 15,
-                                qrbox: (viewfinderWidth, viewfinderHeight) => {
-                                    const minDim = Math.min(viewfinderWidth, viewfinderHeight);
-                                    const boxSize = Math.floor(minDim * 0.8);
-                                    return { width: boxSize, height: boxSize };
-                                }
-                            },
-                            (decodedText) => onScanSuccess(decodedText),
-                            (errorMessage) => { /* ignore per-frame scan errors */ }
-                        );
-                    } catch (err) {
-                        console.error("Scanner error", err);
-                    }
+                try {
+                    await scannerRef.current.start();
+                } catch (err) {
+                    console.error("Scanner error", err);
                 }
             }
         });
@@ -347,8 +339,10 @@ export default function POSPage() {
     useEffect(() => {
         return () => {
             scannerLock.current.then(() => {
-                if (scannerRef.current && scannerRef.current.isScanning) {
-                    scannerRef.current.stop().catch(() => { });
+                if (scannerRef.current) {
+                    scannerRef.current.stop();
+                    scannerRef.current.destroy();
+                    scannerRef.current = null;
                 }
             });
         };
@@ -358,26 +352,17 @@ export default function POSPage() {
         if (!e.target.files || e.target.files.length === 0) return;
         const file = e.target.files[0];
         try {
-            if (!scannerRef.current) {
-                scannerRef.current = new Html5Qrcode("qr-reader-permanent", {
-                    verbose: false,
-                    experimentalFeatures: {
-                        useBarCodeDetectorIfSupported: true
-                    }
-                });
-            }
             // Stop scanning if currently active before scanning file
-            if (scannerRef.current.isScanning) {
-                scannerLock.current = scannerLock.current.then(async () => {
-                    if (scannerRef.current?.isScanning) {
-                        await scannerRef.current.stop().catch(console.error);
-                        setIsCameraActive(false);
-                    }
-                });
-                await scannerLock.current;
-            }
-            const decodedText = await scannerRef.current.scanFileV2(file);
-            onScanSuccess(decodedText.decodedText);
+            scannerLock.current = scannerLock.current.then(async () => {
+                if (scannerRef.current) {
+                    scannerRef.current.stop();
+                    setIsCameraActive(false);
+                }
+            });
+            await scannerLock.current;
+            
+            const result = await QrScanner.scanImage(file, { returnDetailedScanResult: true });
+            onScanSuccess(result.data);
         } catch (err) {
             showToast("No QR code found in the image.", 'error');
         }
@@ -788,10 +773,10 @@ export default function POSPage() {
                         </div>
                     </div>
                     <div className={styles.scannerBody}>
-                        <div
-                            id="qr-reader-permanent"
-                            style={{ width: '100%', borderRadius: 'var(--radius)', overflow: 'hidden', display: isCameraActive ? 'block' : 'none' }}
-                        ></div>
+                        <video
+                            ref={videoRef}
+                            style={{ width: '100%', borderRadius: 'var(--radius)', objectFit: 'cover', display: isCameraActive ? 'block' : 'none' }}
+                        ></video>
                         {!isCameraActive && (
                             <div style={{ width: '100%', height: '200px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--background)', borderRadius: 'var(--radius)', color: 'var(--text-muted)' }}>
                                 <CameraOff size={48} style={{ marginBottom: 8, opacity: 0.5 }} />
