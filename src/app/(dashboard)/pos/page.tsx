@@ -307,7 +307,10 @@ export default function POSPage() {
         scannerLock.current = scannerLock.current.then(async () => {
             if (!scannerRef.current) {
                 scannerRef.current = new Html5Qrcode("qr-reader-permanent", {
-                    verbose: false
+                    verbose: false,
+                    experimentalFeatures: {
+                        useBarCodeDetectorIfSupported: true
+                    }
                 });
             }
 
@@ -356,7 +359,10 @@ export default function POSPage() {
         try {
             if (!scannerRef.current) {
                 scannerRef.current = new Html5Qrcode("qr-reader-permanent", {
-                    verbose: false
+                    verbose: false,
+                    experimentalFeatures: {
+                        useBarCodeDetectorIfSupported: true
+                    }
                 });
             }
             // Stop scanning if currently active before scanning file
