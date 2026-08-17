@@ -361,7 +361,10 @@ export default function POSPage() {
             });
             await scannerLock.current;
             
-            const result = await QrScanner.scanImage(file, { returnDetailedScanResult: true });
+            const result = await QrScanner.scanImage(file, { 
+                returnDetailedScanResult: true,
+                alsoTryWithoutScanRegion: true
+            });
             onScanSuccess(result.data);
         } catch (err) {
             showToast("No QR code found in the image.", 'error');
