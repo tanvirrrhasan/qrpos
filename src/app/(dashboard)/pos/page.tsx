@@ -321,8 +321,7 @@ export default function POSPage() {
                         await scannerRef.current.start(
                             { facingMode: "environment" },
                             {
-                                fps: 4,
-                                aspectRatio: 2.0,
+                                fps: 10,
                                 qrbox: (viewfinderWidth, viewfinderHeight) => {
                                     const minDim = Math.min(viewfinderWidth, viewfinderHeight);
                                     const boxSize = Math.floor(minDim * 0.8);
@@ -784,8 +783,22 @@ export default function POSPage() {
                     <div className={styles.scannerBody}>
                         <div
                             id="qr-reader-permanent"
-                            style={{ width: '100%', borderRadius: 'var(--radius)', overflow: 'hidden', display: isCameraActive ? 'block' : 'none' }}
+                            style={{ 
+                                width: '100%', 
+                                aspectRatio: '2 / 1', 
+                                borderRadius: 'var(--radius)', 
+                                overflow: 'hidden', 
+                                display: isCameraActive ? 'block' : 'none',
+                                position: 'relative'
+                            }}
                         ></div>
+                        <style dangerouslySetInnerHTML={{__html: `
+                            #qr-reader-permanent video {
+                                object-fit: cover !important;
+                                width: 100% !important;
+                                height: 100% !important;
+                            }
+                        `}} />
                         {!isCameraActive && (
                             <div style={{ width: '100%', height: '200px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--background)', borderRadius: 'var(--radius)', color: 'var(--text-muted)' }}>
                                 <CameraOff size={48} style={{ marginBottom: 8, opacity: 0.5 }} />
