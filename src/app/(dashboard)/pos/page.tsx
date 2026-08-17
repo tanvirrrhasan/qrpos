@@ -361,12 +361,54 @@ export default function POSPage() {
             });
             await scannerLock.current;
             
-            const result = await QrScanner.scanImage(file, { 
-                returnDetailedScanResult: true,
-                alsoTryWithoutScanRegion: true
-            });
-            onScanSuccess(result.data);
+            // Try different sizes to handle both huge images and different QR sizes
+            const img = await createImageBitmap(file);
+            let scanResult = null;
+            // 1080 matches typical phone screenshot width
+            const dimsToTry = [img.width, 1500, 1080, 800, 400];
+            
+            for (const maxDim of dimsToTry) {
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+
+                if (width > maxDim || height > maxDim) {
+                    const ratio = Math.min(maxDim / width, maxDim / height);
+                    width = Math.round(width * ratio);
+                    height = Math.round(height * ratio);
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                if (ctx) {
+                    // Smoothing must be true to prevent pixel dropping when downscaling heavily
+                    ctx.imageSmoothingEnabled = true; 
+                    ctx.imageSmoothingQuality = 'high';
+                    ctx.drawImage(img, 0, 0, width, height);
+                }
+                
+                try {
+                    const result = await QrScanner.scanImage(canvas, { 
+                        returnDetailedScanResult: true,
+                        alsoTryWithoutScanRegion: true
+                    });
+                    if (result && result.data) {
+                        scanResult = result.data;
+                        break;
+                    }
+                } catch (e) {
+                    // Ignore and try next size
+                }
+            }
+
+            if (scanResult) {
+                onScanSuccess(scanResult);
+            } else {
+                throw new Error("QR code not found in any resolution");
+            }
         } catch (err) {
+            console.error("Upload scan error:", err);
             showToast("No QR code found in the image.", 'error');
         }
         // Reset file input
