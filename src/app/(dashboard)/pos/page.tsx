@@ -323,7 +323,6 @@ export default function POSPage() {
                             { facingMode: "environment" },
                             {
                                 fps: 10,
-                                aspectRatio: 2.0,
                                 qrbox: { width: 250, height: 250 }
                             },
                             (decodedText) => onScanSuccess(decodedText),
