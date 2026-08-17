@@ -325,6 +325,7 @@ export default function POSPage() {
                             { facingMode: "environment" },
                             {
                                 fps: 10,
+                                aspectRatio: 2.0,
                                 qrbox: (viewfinderWidth, viewfinderHeight) => {
                                     const minDim = Math.min(viewfinderWidth, viewfinderHeight);
                                     const boxSize = Math.floor(minDim * 0.8);
@@ -789,22 +790,8 @@ export default function POSPage() {
                     <div className={styles.scannerBody}>
                         <div
                             id="qr-reader-permanent"
-                            style={{ 
-                                width: '100%', 
-                                aspectRatio: '2 / 1', 
-                                borderRadius: 'var(--radius)', 
-                                overflow: 'hidden', 
-                                display: isCameraActive ? 'block' : 'none',
-                                position: 'relative'
-                            }}
+                            style={{ width: '100%', borderRadius: 'var(--radius)', overflow: 'hidden', display: isCameraActive ? 'block' : 'none' }}
                         ></div>
-                        <style dangerouslySetInnerHTML={{__html: `
-                            #qr-reader-permanent video {
-                                object-fit: cover !important;
-                                width: 100% !important;
-                                height: 100% !important;
-                            }
-                        `}} />
                         {!isCameraActive && (
                             <div style={{ width: '100%', height: '200px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--background)', borderRadius: 'var(--radius)', color: 'var(--text-muted)' }}>
                                 <CameraOff size={48} style={{ marginBottom: 8, opacity: 0.5 }} />
