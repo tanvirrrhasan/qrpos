@@ -308,7 +308,10 @@ export default function POSPage() {
         scannerLock.current = scannerLock.current.then(async () => {
             if (!scannerRef.current) {
                 scannerRef.current = new Html5Qrcode("qr-reader-permanent", {
-                    verbose: false
+                    verbose: false,
+                    experimentalFeatures: {
+                        useBarCodeDetectorIfSupported: true
+                    }
                 });
             }
 
@@ -322,8 +325,12 @@ export default function POSPage() {
                         await scannerRef.current.start(
                             { facingMode: "environment" },
                             {
-                                fps: 10,
-                                qrbox: { width: 250, height: 250 }
+                                fps: 15,
+                                qrbox: (viewfinderWidth, viewfinderHeight) => {
+                                    const minDim = Math.min(viewfinderWidth, viewfinderHeight);
+                                    const boxSize = Math.floor(minDim * 0.8);
+                                    return { width: boxSize, height: boxSize };
+                                }
                             },
                             (decodedText) => onScanSuccess(decodedText),
                             (errorMessage) => { /* ignore per-frame scan errors */ }
@@ -353,7 +360,10 @@ export default function POSPage() {
         try {
             if (!scannerRef.current) {
                 scannerRef.current = new Html5Qrcode("qr-reader-permanent", {
-                    verbose: false
+                    verbose: false,
+                    experimentalFeatures: {
+                        useBarCodeDetectorIfSupported: true
+                    }
                 });
             }
             // Stop scanning if currently active before scanning file
