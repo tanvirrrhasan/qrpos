@@ -303,6 +303,7 @@ export default function POSPage() {
     };
 
     // --- QR SCANNER LOGIC ---
+    // Triggering a new commit for Vercel deployment test
     useEffect(() => {
         scannerLock.current = scannerLock.current.then(async () => {
             if (!scannerRef.current) {
