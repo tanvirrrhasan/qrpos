@@ -1,6 +1,6 @@
 .container {
     display: flex;
-    height: calc(100vh - 60px);
+    height: calc(100dvh - 60px);
     gap: 1rem;
     overflow: hidden;
     padding: 1rem;
@@ -486,6 +486,21 @@
 .scannerBody {
     position: relative;
     width: 100%;
+    aspect-ratio: 2 / 1;
+    overflow: hidden;
+    border-radius: var(--radius);
+    background: #000;
+}
+
+.scannerBody > div {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+.scannerBody video {
+    object-fit: cover !important;
+    width: 100% !important;
+    height: 100% !important;
 }
 
 @media (max-width: 768px) {
