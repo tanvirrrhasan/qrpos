@@ -278,7 +278,29 @@ export default function POSPage() {
     };
 
     const lastScannedRef = useRef<string | null>(null);
-    const lastScanTimeRef = useRef<number>(0);
+    const clearScanTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+    const playBeep = () => {
+        try {
+            const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(800, audioCtx.currentTime);
+            
+            gainNode.gain.setValueAtTime(1, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + 0.1);
+        } catch (e) {
+            console.log('Audio beep error', e);
+        }
+    };
 
     // --- QR SCANNER LOGIC ---
     useEffect(() => {
@@ -302,7 +324,7 @@ export default function POSPage() {
                         await scannerRef.current.start(
                             { facingMode: "environment" },
                             {
-                                fps: 15,
+                                fps: 4,
                                 qrbox: (viewfinderWidth, viewfinderHeight) => {
                                     const minDim = Math.min(viewfinderWidth, viewfinderHeight);
                                     const boxSize = Math.floor(minDim * 0.75);
@@ -363,18 +385,18 @@ export default function POSPage() {
     };
 
     const onScanSuccess = (decodedText: string) => {
-        // Prevent rapid duplicate scans within 1.5 seconds
-        const now = Date.now();
-        if (lastScannedRef.current === decodedText && now - lastScanTimeRef.current < 1500) {
+        if (clearScanTimeoutRef.current) clearTimeout(clearScanTimeoutRef.current);
+        clearScanTimeoutRef.current = setTimeout(() => {
+            lastScannedRef.current = null;
+        }, 1000);
+
+        if (lastScannedRef.current === decodedText) {
             return;
         }
-        lastScannedRef.current = decodedText;
-        lastScanTimeRef.current = now;
 
-        try {
-            const audio = new Audio('/beep.mp3');
-            audio.play().catch(e => console.log('Audio error', e));
-        } catch (e) { }
+        lastScannedRef.current = decodedText;
+
+        playBeep();
         if (navigator.vibrate) navigator.vibrate(100);
 
         showToast(`Scanned: ${decodedText}`, 'info');
