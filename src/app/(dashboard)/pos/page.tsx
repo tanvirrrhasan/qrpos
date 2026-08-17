@@ -277,11 +277,19 @@ export default function POSPage() {
         setNewCustPhone('');
     };
 
+    const lastScannedRef = useRef<string | null>(null);
+    const lastScanTimeRef = useRef<number>(0);
+
     // --- QR SCANNER LOGIC ---
     useEffect(() => {
         scannerLock.current = scannerLock.current.then(async () => {
             if (!scannerRef.current) {
-                scannerRef.current = new Html5Qrcode("qr-reader-permanent");
+                scannerRef.current = new Html5Qrcode("qr-reader-permanent", {
+                    verbose: false,
+                    experimentalFeatures: {
+                        useBarCodeDetectorIfSupported: true
+                    }
+                });
             }
 
             if (!isCameraActive) {
@@ -291,16 +299,18 @@ export default function POSPage() {
             } else {
                 if (!scannerRef.current.isScanning) {
                     try {
-                        const isMobile = window.innerWidth <= 768;
                         await scannerRef.current.start(
                             { facingMode: "environment" },
                             {
-                                fps: 10,
-                                qrbox: isMobile ? { width: 200, height: 100 } : { width: 250, height: 150 },
-                                aspectRatio: isMobile ? 2.5 : 3.0
+                                fps: 15,
+                                qrbox: (viewfinderWidth, viewfinderHeight) => {
+                                    const minDim = Math.min(viewfinderWidth, viewfinderHeight);
+                                    const boxSize = Math.floor(minDim * 0.75);
+                                    return { width: boxSize, height: boxSize };
+                                }
                             },
                             (decodedText) => onScanSuccess(decodedText),
-                            (errorMessage) => { /* ignore */ }
+                            (errorMessage) => { /* ignore per-frame scan errors */ }
                         );
                     } catch (err) {
                         console.error("Scanner error", err);
@@ -326,7 +336,12 @@ export default function POSPage() {
         const file = e.target.files[0];
         try {
             if (!scannerRef.current) {
-                scannerRef.current = new Html5Qrcode("qr-reader-permanent");
+                scannerRef.current = new Html5Qrcode("qr-reader-permanent", {
+                    verbose: false,
+                    experimentalFeatures: {
+                        useBarCodeDetectorIfSupported: true
+                    }
+                });
             }
             // Stop scanning if currently active before scanning file
             if (scannerRef.current.isScanning) {
@@ -348,20 +363,31 @@ export default function POSPage() {
     };
 
     const onScanSuccess = (decodedText: string) => {
+        // Prevent rapid duplicate scans within 1.5 seconds
+        const now = Date.now();
+        if (lastScannedRef.current === decodedText && now - lastScanTimeRef.current < 1500) {
+            return;
+        }
+        lastScannedRef.current = decodedText;
+        lastScanTimeRef.current = now;
+
         try {
             const audio = new Audio('/beep.mp3');
             audio.play().catch(e => console.log('Audio error', e));
         } catch (e) { }
         if (navigator.vibrate) navigator.vibrate(100);
 
+        showToast(`Scanned: ${decodedText}`, 'info');
+
         const result = parseQRContent(decodedText);
         if (result.type === 'sku') {
-            const p = productsRef.current.find(prod => prod.sku === result.identifier);
+            const p = productsRef.current.find(prod => prod.sku.toLowerCase() === result.identifier.toLowerCase());
             if (p) {
                 if (p.has_variants) {
                     setVariantModal(p);
                 } else {
                     addToCart(p);
+                    showToast(`Added ${p.name} to cart!`, 'success');
                 }
             } else {
                 showToast(`Product not found for SKU: ${result.identifier}`, 'error');
