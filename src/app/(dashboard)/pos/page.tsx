@@ -325,9 +325,10 @@ export default function POSPage() {
                             { facingMode: "environment" },
                             {
                                 fps: 4,
+                                aspectRatio: 2.0,
                                 qrbox: (viewfinderWidth, viewfinderHeight) => {
                                     const minDim = Math.min(viewfinderWidth, viewfinderHeight);
-                                    const boxSize = Math.floor(minDim * 0.75);
+                                    const boxSize = Math.floor(minDim * 0.8);
                                     return { width: boxSize, height: boxSize };
                                 }
                             },
