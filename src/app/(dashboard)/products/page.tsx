@@ -1,15 +1,17 @@
 'use client'
 
+import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
-import { Plus, Search, Filter, Edit, Trash, QrCode, Image as ImageIcon } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Plus, Search, Filter, Edit, Trash, QrCode, Image as ImageIcon, ChevronDown, ChevronRight } from 'lucide-react';
 import styles from './products.module.css';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { localDB } from '@/lib/db/local';
-import { useState, useMemo } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import { useAuth } from '@/lib/contexts/AuthContext';
 
 export default function ProductsPage() {
+  const router = useRouter();
   const { hasPermission } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -17,29 +19,61 @@ export default function ProductsPage() {
   const [statusFilter, setStatusFilter] = useState('active');
   const [variantFilter, setVariantFilter] = useState('all');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
 
   // Fetch from Dexie
   const products = useLiveQuery(() => localDB.products.toArray(), []) || [];
+  const variants = useLiveQuery(() => localDB.productVariants.toArray(), []) || [];
   const categories = useLiveQuery(() => localDB.categories.toArray(), []) || [];
+
+  const toggleRow = (id: string) => {
+    const newSet = new Set(expandedRows);
+    if (newSet.has(id)) newSet.delete(id);
+    else newSet.add(id);
+    setExpandedRows(newSet);
+  };
+
+  const handlePrintQR = (id: string) => {
+    sessionStorage.setItem('qr_print_ids', JSON.stringify([id]));
+    router.push('/qr/print');
+  };
+
+  const handleDeleteVariant = async (variantId: string, variantValue: string) => {
+    if(!confirm(`"${variantValue}" ভ্যারিয়েন্টটি নিষ্ক্রিয় করা হবে। নিশ্চিত?`)) return;
+    try {
+        const { error } = await supabase.from('product_variants').update({ is_active: false, updated_at: new Date().toISOString() }).eq('id', variantId);
+        if (error) throw error;
+        await localDB.productVariants.update(variantId, { is_active: false });
+    } catch (err: any) {
+        alert("Failed to delete variant: " + err.message);
+    }
+  };
 
   // Filter logic
   const filteredProducts = useMemo(() => {
-    return products.filter(p => {
+    return products.map(p => {
+      const pVars = variants.filter(v => v.product_id === p.id);
+      let currentStock = p.stock || 0;
+      if (p.has_variants) {
+        currentStock = pVars.reduce((sum, v) => sum + (v.stock || 0), 0);
+      }
+      return { ...p, calculatedStock: currentStock, variants: pVars };
+    }).filter(p => {
       const matchSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || (p.sku && p.sku.toLowerCase().includes(searchTerm.toLowerCase()));
       const matchCategory = categoryFilter === 'all' || p.category_id === categoryFilter;
       const matchStatus = statusFilter === 'all' || (statusFilter === 'active' ? p.is_active : !p.is_active);
       const matchVariant = variantFilter === 'all' || (variantFilter === 'yes' ? p.has_variants : !p.has_variants);
       
       let matchStock = true;
-      if (stockFilter === 'in_stock') matchStock = p.stock > p.low_stock_alert;
-      if (stockFilter === 'low_stock') matchStock = p.stock > 0 && p.stock <= p.low_stock_alert;
-      if (stockFilter === 'out_stock') matchStock = p.stock === 0;
+      if (stockFilter === 'in_stock') matchStock = p.calculatedStock > p.low_stock_alert;
+      if (stockFilter === 'low_stock') matchStock = p.calculatedStock > 0 && p.calculatedStock <= p.low_stock_alert;
+      if (stockFilter === 'out_stock') matchStock = p.calculatedStock === 0;
 
       return matchSearch && matchCategory && matchStatus && matchVariant && matchStock;
     }).sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
-  }, [products, searchTerm, categoryFilter, stockFilter, statusFilter, variantFilter]);
+  }, [products, variants, searchTerm, categoryFilter, stockFilter, statusFilter, variantFilter]);
 
   // Pagination
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage) || 1;
@@ -189,56 +223,114 @@ export default function ProductsPage() {
             ) : null}
             
             {currentProducts.map(product => (
-              <tr key={product.id}>
-                <td data-label="Select">
-                    <input 
-                        type="checkbox" 
-                        checked={selectedIds.has(product.id)}
-                        onChange={() => toggleSelect(product.id)}
-                    />
-                </td>
-                <td data-label="Product Info">
-                  <div className={styles.productInfo}>
-                    <div className={styles.thumbnail}>
-                        {product.thumbnail_url ? <img src={product.thumbnail_url} alt="img" /> : <ImageIcon size={20} color="var(--text-muted)"/>}
+              <React.Fragment key={product.id}>
+                <tr>
+                  <td data-label="Select">
+                      <input 
+                          type="checkbox" 
+                          checked={selectedIds.has(product.id)}
+                          onChange={() => toggleSelect(product.id)}
+                      />
+                  </td>
+                  <td data-label="Product Info">
+                    <div className={styles.productInfo} style={{ justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        <div className={styles.thumbnail}>
+                            {product.thumbnail_url ? <img src={product.thumbnail_url} alt="img" /> : <ImageIcon size={20} color="var(--text-muted)"/>}
+                        </div>
+                        <div>
+                          <p className={styles.productName}>
+                            {product.name} {product.has_variants ? <span style={{fontSize:'0.75rem', fontWeight:'normal', color:'var(--text-muted)'}}>({product.variants.length} vars)</span> : ''}
+                          </p>
+                          <span className={styles.productBrand}>{product.brand || 'No Brand'}</span>
+                        </div>
+                      </div>
+                      {product.has_variants && (
+                          <button 
+                            onClick={() => toggleRow(product.id)} 
+                            style={{background: 'none', border:'none', cursor:'pointer', color:'var(--text-muted)', padding: '4px', display: 'flex', alignItems: 'center', marginRight: '0.5rem'}}
+                            title="Toggle Variants"
+                          >
+                              {expandedRows.has(product.id) ? <ChevronDown size={20}/> : <ChevronRight size={20}/>}
+                          </button>
+                      )}
                     </div>
-                    <div>
-                      <p className={styles.productName}>{product.name}</p>
-                      <span className={styles.productBrand}>{product.brand || 'No Brand'}</span>
+                  </td>
+                  <td data-label="SKU">{product.sku || '-'}</td>
+                  <td data-label="Category"><span style={{fontSize: '0.875rem'}}>{getCategoryName(product.category_id)}</span></td>
+                  <td data-label="Buy Price">৳ {product.purchase_price}</td>
+                  <td data-label="Sell Price">৳ {product.selling_price}</td>
+                  <td data-label="Stock">
+                    <span className={`${styles.stockBadge} ${product.calculatedStock === 0 ? styles.stockOut : product.calculatedStock <= product.low_stock_alert ? styles.stockLow : styles.stockGood}`}>
+                      {product.calculatedStock} {product.unit} {product.has_variants ? '(Variants)' : ''}
+                    </span>
+                  </td>
+                  <td data-label="Status">
+                    {product.is_active ? 
+                      <span className={styles.statusActive}>Active</span> : 
+                      <span className={styles.statusInactive}>Inactive</span>
+                    }
+                  </td>
+                  <td data-label="Actions">
+                    <div className={styles.actions}>
+                      <button className={styles.actionBtn} title="Print QR" onClick={() => handlePrintQR(product.id)}><QrCode size={18} /></button>
+                      {hasPermission('can_add_edit_products') && (
+                          <>
+                              <Link href={`/products/edit?id=${product.id}`} className={styles.actionBtn} title="Edit"><Edit size={18} /></Link>
+                              {product.is_active && (
+                                  <button className={styles.actionBtn} title="Delete" onClick={() => handleDelete(product.id)}>
+                                      <Trash size={18} style={{color: 'var(--danger)'}} />
+                                  </button>
+                              )}
+                          </>
+                      )}
                     </div>
-                  </div>
-                </td>
-                <td data-label="SKU">{product.sku || '-'}</td>
-                <td data-label="Category"><span style={{fontSize: '0.875rem'}}>{getCategoryName(product.category_id)}</span></td>
-                <td data-label="Buy Price">৳ {product.purchase_price}</td>
-                <td data-label="Sell Price">৳ {product.selling_price}</td>
-                <td data-label="Stock">
-                  <span className={`${styles.stockBadge} ${product.stock === 0 ? styles.stockOut : product.stock <= product.low_stock_alert ? styles.stockLow : styles.stockGood}`}>
-                    {product.stock} {product.unit} {product.has_variants ? '(Variants)' : ''}
-                  </span>
-                </td>
-                <td data-label="Status">
-                  {product.is_active ? 
-                    <span className={styles.statusActive}>Active</span> : 
-                    <span className={styles.statusInactive}>Inactive</span>
-                  }
-                </td>
-                <td data-label="Actions">
-                  <div className={styles.actions}>
-                    <button className={styles.actionBtn} title="Print QR"><QrCode size={18} /></button>
-                    {hasPermission('can_add_edit_products') && (
-                        <>
-                            <Link href={`/products/edit/${product.id}`} className={styles.actionBtn} title="Edit"><Edit size={18} /></Link>
-                            {product.is_active && (
-                                <button className={styles.actionBtn} title="Delete" onClick={() => handleDelete(product.id)}>
-                                    <Trash size={18} style={{color: 'var(--danger)'}} />
+                  </td>
+                </tr>
+
+                {product.has_variants && expandedRows.has(product.id) && product.variants.map(v => (
+                    <tr key={v.id} className={styles.variantRow}>
+                        <td data-label="Select"></td>
+                        <td data-label="Product Info">
+                            <div style={{paddingLeft: '1.5rem', color: 'var(--text-main)', fontSize: '0.875rem', fontWeight: 500}}>
+                                ↳ {product.name} - {v.variant_value}
+                            </div>
+                        </td>
+                        <td data-label="SKU">{v.sku || '-'}</td>
+                        <td data-label="Category"></td>
+                        <td data-label="Buy Price">৳ {v.purchase_price}</td>
+                        <td data-label="Sell Price">৳ {v.selling_price}</td>
+                        <td data-label="Stock">
+                            <span className={`${styles.stockBadge} ${v.stock === 0 ? styles.stockOut : v.stock <= product.low_stock_alert ? styles.stockLow : styles.stockGood}`}>
+                                {v.stock} {product.unit}
+                            </span>
+                        </td>
+                        <td data-label="Status">
+                            {v.is_active ? 
+                                <span className={styles.statusActive}>Active</span> : 
+                                <span className={styles.statusInactive}>Inactive</span>
+                            }
+                        </td>
+                        <td data-label="Actions">
+                            <div className={styles.actions}>
+                                <button className={styles.actionBtn} title="Print Variant QR" onClick={() => handlePrintQR(v.id)}>
+                                    <QrCode size={18} />
                                 </button>
-                            )}
-                        </>
-                    )}
-                  </div>
-                </td>
-              </tr>
+                                {hasPermission('can_add_edit_products') && (
+                                    <Link href={`/products/edit?id=${product.id}`} className={styles.actionBtn} title="Edit Parent Product">
+                                        <Edit size={18} />
+                                    </Link>
+                                )}
+                                {hasPermission('can_delete_products') && v.is_active && (
+                                    <button className={styles.actionBtn} title="Delete Variant" onClick={() => handleDeleteVariant(v.id, v.variant_value)}>
+                                        <Trash size={18} style={{color: 'var(--danger)'}} />
+                                    </button>
+                                )}
+                            </div>
+                        </td>
+                    </tr>
+                ))}
+              </React.Fragment>
             ))}
           </tbody>
         </table>

@@ -153,7 +153,7 @@ export default function CustomersPage() {
                                 <td data-label="Total Spent">৳ {customer.total_purchases?.toFixed(2) || '0.00'}</td>
                                 <td data-label="Actions">
                                     <div className={styles.actions}>
-                                        <button className={styles.actionBtn} onClick={() => router.push(`/customers/${customer.id}`)} title="View Profile"><Eye size={16} style={{color: 'var(--primary)'}} /></button>
+                                        <button className={styles.actionBtn} onClick={() => router.push(`/customers/details?id=${customer.id}`)} title="View Profile"><Eye size={16} style={{color: 'var(--primary)'}} /></button>
                                         <button className={styles.actionBtn}><Edit size={16} /></button>
                                         <button className={styles.actionBtn}><Trash size={16} style={{color: 'var(--danger)'}} /></button>
                                     </div>

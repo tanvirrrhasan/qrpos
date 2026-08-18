@@ -170,7 +170,7 @@ export default function SuppliersPage() {
                                 <td data-label="Total Purchases">৳ {supplier.total_purchases?.toFixed(2) || '0.00'}</td>
                                 <td data-label="Actions">
                                     <div className={styles.actions}>
-                                        <button className={styles.actionBtn} onClick={() => router.push(`/suppliers/${supplier.id}`)} title="View Profile"><Eye size={16} style={{color: 'var(--primary)'}} /></button>
+                                        <button className={styles.actionBtn} onClick={() => router.push(`/suppliers/details?id=${supplier.id}`)} title="View Profile"><Eye size={16} style={{color: 'var(--primary)'}} /></button>
                                         <button className={styles.actionBtn}><Edit size={16} /></button>
                                         <button className={styles.actionBtn}><Trash size={16} style={{color: 'var(--danger)'}} /></button>
                                     </div>

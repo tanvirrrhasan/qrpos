@@ -19,7 +19,7 @@ const QRLabel = ({ product, showName, showPrice, showSKU, labelSize, qrMode, cus
             
             if (qrMode === '2') {
                 const baseUrl = window.location.origin;
-                qrContent = `${baseUrl}/p/${product.sku}`;
+                qrContent = `${baseUrl}/p?sku=${product.sku}`;
             } else if (qrMode === '3' && customUrlPattern) {
                 qrContent = customUrlPattern.replace('{sku}', product.sku);
             }
@@ -81,7 +81,30 @@ export default function QRPrintPage() {
             const idsStr = sessionStorage.getItem('qr_print_ids');
             if (idsStr) {
                 const ids = JSON.parse(idsStr) as string[];
-                const prods = await localDB.products.where('id').anyOf(ids).toArray();
+                let prods = await localDB.products.where('id').anyOf(ids).toArray();
+                if (prods.length < ids.length) {
+                    const foundIds = new Set(prods.map(p => p.id));
+                    const missingIds = ids.filter(id => !foundIds.has(id));
+                    const vars = await localDB.productVariants.where('id').anyOf(missingIds).toArray();
+                    for (const v of vars) {
+                        const parentProd = await localDB.products.get(v.product_id);
+                        prods.push({
+                            id: v.id,
+                            store_id: v.store_id,
+                            name: parentProd ? `${parentProd.name} (${v.variant_value})` : v.variant_value,
+                            sku: v.sku,
+                            unit: parentProd?.unit || 'pcs',
+                            purchase_price: v.purchase_price,
+                            selling_price: v.selling_price,
+                            stock: v.stock,
+                            low_stock_alert: v.low_stock_alert,
+                            has_variants: false,
+                            is_active: v.is_active,
+                            created_at: v.created_at,
+                            updated_at: v.updated_at
+                        } as Product);
+                    }
+                }
                 setProducts(prods);
             }
         };

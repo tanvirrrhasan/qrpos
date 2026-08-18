@@ -2,9 +2,10 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Bell, Search, LogOut, RefreshCw, AlertTriangle, Package, User as UserIcon, FileText, X } from 'lucide-react';
 import styles from './layout.module.css';
-import { logout } from '@/app/login/actions';
+import { supabase } from '@/lib/supabase/client';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { localDB } from '@/lib/db/local';
 import { fullSync } from '@/lib/sync';
@@ -12,6 +13,7 @@ import { useAuth } from '@/lib/contexts/AuthContext';
 
 export default function Header() {
     const { storeId } = useAuth();
+    const router = useRouter();
     const [searchQuery, setSearchQuery] = useState('');
     const [showSearchPopover, setShowSearchPopover] = useState(false);
     const [showNotifPopover, setShowNotifPopover] = useState(false);
@@ -23,6 +25,7 @@ export default function Header() {
     // Live queries
     const settings = useLiveQuery(() => localDB.settings.toArray(), []) || [];
     const products = useLiveQuery(() => localDB.products.toArray(), []) || [];
+    const variants = useLiveQuery(() => localDB.productVariants.toArray(), []) || [];
     const customers = useLiveQuery(() => localDB.customers.toArray(), []) || [];
     const sales = useLiveQuery(() => localDB.sales.toArray(), []) || [];
 
@@ -30,8 +33,15 @@ export default function Header() {
     const bizSetting = settings.find(s => s.setting_key === 'business_info');
     const storeName = bizSetting?.setting_value?.name || 'QRPOS Store';
 
-    // Filter low stock items
-    const lowStockItems = products.filter(p => p.is_active && p.stock <= p.low_stock_alert);
+    // Filter low stock items considering variant stocks
+    const lowStockItems = products.filter(p => p.is_active).map(p => {
+        let currentStock = p.stock || 0;
+        if (p.has_variants) {
+            const pVars = variants.filter(v => v.product_id === p.id);
+            currentStock = pVars.reduce((sum, v) => sum + (v.stock || 0), 0);
+        }
+        return { ...p, calculatedStock: currentStock };
+    }).filter(p => p.calculatedStock <= (p.low_stock_alert || 0));
 
     // Close popovers on outside click
     useEffect(() => {
@@ -76,6 +86,11 @@ export default function Header() {
         } finally {
             setIsSyncing(false);
         }
+    };
+
+    const handleLogout = async () => {
+        await supabase.auth.signOut();
+        router.push('/login');
     };
 
     return (
@@ -227,7 +242,7 @@ export default function Header() {
                                                 <AlertTriangle size={16} color="#f59e0b" />
                                                 <div>
                                                     <div style={{ fontWeight: 600 }}>{item.name}</div>
-                                                    <div style={{ fontSize: '0.75rem', color: 'var(--danger)' }}>Only {item.stock} left in stock</div>
+                                                    <div style={{ fontSize: '0.75rem', color: 'var(--danger)' }}>Only {item.calculatedStock} left in stock</div>
                                                 </div>
                                             </div>
                                         </div>
@@ -251,11 +266,9 @@ export default function Header() {
                 </div>
 
                 {/* Logout Button */}
-                <form action={logout}>
-                    <button type="submit" className={styles.iconButton} title="Logout" style={{ color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer' }}>
-                        <LogOut size={20} />
-                    </button>
-                </form>
+                <button onClick={handleLogout} className={styles.iconButton} title="Logout" style={{ color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                    <LogOut size={20} />
+                </button>
             </div>
         </header>
     );

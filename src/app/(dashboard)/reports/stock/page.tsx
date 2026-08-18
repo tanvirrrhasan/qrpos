@@ -11,6 +11,7 @@ export default function StockReportPage() {
     const router = useRouter();
 
     const allProducts = useLiveQuery(() => localDB.products.toArray()) || [];
+    const allVariants = useLiveQuery(() => localDB.productVariants.toArray(), []) || [];
     const allCategories = useLiveQuery(() => localDB.categories.toArray()) || [];
 
     const metrics = useMemo(() => {
@@ -20,9 +21,16 @@ export default function StockReportPage() {
         let outOfStock = 0;
 
         allProducts.forEach(p => {
-            const stock = p.stock || 0;
-            const price = p.purchase_price || 0;
-            totalValue += stock * price;
+            let stock = p.stock || 0;
+            let pValue = stock * (p.purchase_price || 0);
+
+            if (p.has_variants) {
+                const pVars = allVariants.filter(v => v.product_id === p.id);
+                stock = pVars.reduce((sum, v) => sum + (v.stock || 0), 0);
+                pValue = pVars.reduce((sum, v) => sum + ((v.stock || 0) * (v.purchase_price || 0)), 0);
+            }
+
+            totalValue += pValue;
 
             if (stock <= 0) outOfStock++;
             else if (stock <= (p.low_stock_alert || 5)) lowStock++;
@@ -30,16 +38,25 @@ export default function StockReportPage() {
         });
 
         return { totalValue, inStock, lowStock, outOfStock };
-    }, [allProducts]);
+    }, [allProducts, allVariants]);
 
     const categoryData = useMemo(() => {
         const catMap = new Map(allCategories.map(c => [c.id, c.name]));
         const group: Record<string, number> = {};
         
         allProducts.forEach(p => {
-            if (p.stock > 0) {
+            let stock = p.stock || 0;
+            let pValue = stock * (p.purchase_price || 0);
+
+            if (p.has_variants) {
+                const pVars = allVariants.filter(v => v.product_id === p.id);
+                stock = pVars.reduce((sum, v) => sum + (v.stock || 0), 0);
+                pValue = pVars.reduce((sum, v) => sum + ((v.stock || 0) * (v.purchase_price || 0)), 0);
+            }
+
+            if (stock > 0) {
                 const catName = p.category_id ? (catMap.get(p.category_id) || 'Uncategorized') : 'Uncategorized';
-                group[catName] = (group[catName] || 0) + (p.stock * (p.purchase_price || 0));
+                group[catName] = (group[catName] || 0) + pValue;
             }
         });
 
@@ -47,7 +64,7 @@ export default function StockReportPage() {
             name,
             value: group[name]
         })).sort((a,b) => b.value - a.value);
-    }, [allProducts, allCategories]);
+    }, [allProducts, allVariants, allCategories]);
 
     const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#ffc658'];
 

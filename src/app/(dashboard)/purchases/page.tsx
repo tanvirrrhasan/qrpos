@@ -110,7 +110,7 @@ export default function PurchasesPage() {
                                 <td data-label="Actions">
                                     <button 
                                         className={styles.actionBtn} 
-                                        onClick={() => router.push(`/purchases/${purchase.id}`)}
+                                        onClick={() => router.push(`/purchases/details?id=${purchase.id}`)}
                                         title="View Details"
                                         style={{display: 'flex', alignItems: 'center', gap: '0.25rem', background: 'var(--surface)', border: '1px solid var(--border)', padding: '0.25rem 0.5rem'}}
                                     >

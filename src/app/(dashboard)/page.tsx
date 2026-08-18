@@ -32,6 +32,7 @@ export default function Dashboard() {
   }, []);
 
   const products = useLiveQuery(() => localDB.products.toArray(), []) || [];
+  const variants = useLiveQuery(() => localDB.productVariants.toArray(), []) || [];
   const sales = useLiveQuery(() => localDB.sales.toArray(), []) || [];
   const saleItems = useLiveQuery(() => localDB.saleItems.toArray(), []) || [];
   const customers = useLiveQuery(() => localDB.customers.toArray(), []) || [];
@@ -72,19 +73,35 @@ export default function Dashboard() {
   }, [saleItems, filteredSales]);
 
   // Calculations
-  const totalSalesAmount = filteredSales.reduce((sum: number, sale: any) => sum + sale.total, 0);
+  const totalSalesAmount = filteredSales.reduce((sum: number, sale: any) => sum + (Number(sale.total) || 0), 0);
   
-  // Profit: (unit_price - purchase_price) * quantity - discount
-  const totalProfit = filteredSaleItems.reduce((sum: number, item: any) => {
-      const baseProfit = (item.unit_price - item.purchase_price) * item.quantity;
-      return sum + baseProfit - item.discount_amount;
+  // Profit: Revenue - Cost of Goods Sold (COGS)
+  const totalCogs = filteredSaleItems.reduce((sum: number, item: any) => {
+      const qty = Number(item.quantity) || 0;
+      const purchasePrice = Number(item.purchase_price) || 0;
+      return sum + (qty * purchasePrice);
   }, 0);
 
-  const totalDue = customers.reduce((sum: number, cust: any) => sum + cust.total_due, 0);
-  const activeProducts = products.filter(p => p.is_active).length;
+  const totalProfit = totalSalesAmount - totalCogs;
+
+  const totalDue = customers.reduce((sum: number, cust: any) => sum + (Number(cust.total_due) || 0), 0);
   
-  const lowStockProducts = products.filter(p => p.stock <= p.low_stock_alert && p.stock > 0);
-  const outOfStockProducts = products.filter(p => p.stock === 0);
+  const productsWithStock = useMemo(() => {
+    return products.map(p => {
+      let currentStock = p.stock || 0;
+      if (p.has_variants) {
+        const pVars = variants.filter(v => v.product_id === p.id);
+        currentStock = pVars.reduce((sum, v) => sum + (v.stock || 0), 0);
+      }
+      return { ...p, calculatedStock: currentStock };
+    });
+  }, [products, variants]);
+
+  const activeProducts = productsWithStock.filter(p => p.is_active);
+  const activeProductsCount = activeProducts.length;
+  
+  const lowStockProducts = activeProducts.filter(p => p.calculatedStock <= p.low_stock_alert && p.calculatedStock > 0);
+  const outOfStockProducts = activeProducts.filter(p => p.calculatedStock === 0);
 
   const todayCreditSales = filteredSales.filter(s => s.due_amount > 0);
   const recentSales = [...filteredSales].sort((a: any, b: any) => new Date(b.sale_date).getTime() - new Date(a.sale_date).getTime()).slice(0, 10);
@@ -95,7 +112,7 @@ export default function Dashboard() {
     filteredSales.forEach((sale: any) => {
         const date = format(new Date(sale.sale_date), 'MMM dd');
         if(!grouped[date]) grouped[date] = 0;
-        grouped[date] += sale.total;
+        grouped[date] += Number(sale.total) || 0;
     });
     return Object.keys(grouped).map(key => ({ date: key, sales: grouped[key] }));
   }, [filteredSales]);
@@ -104,7 +121,7 @@ export default function Dashboard() {
       const grouped: any = {};
       filteredSaleItems.forEach((item: any) => {
           if(!grouped[item.product_name]) grouped[item.product_name] = 0;
-          grouped[item.product_name] += item.quantity;
+          grouped[item.product_name] += Number(item.quantity) || 0;
       });
       return Object.keys(grouped)
         .map(key => ({ name: key.substring(0, 15), quantity: grouped[key] }))
@@ -119,7 +136,7 @@ export default function Dashboard() {
           const category = categories.find(c => c.id === product?.category_id);
           const catName = category?.name || 'Uncategorized';
           if(!grouped[catName]) grouped[catName] = 0;
-          grouped[catName] += item.total;
+          grouped[catName] += Number(item.total) || 0;
       });
       return Object.keys(grouped).map(key => ({ name: key, value: grouped[key] }));
   }, [filteredSaleItems, products, categories]);
@@ -128,8 +145,8 @@ export default function Dashboard() {
       // Mocking payment methods based on sale status since we don't sync sale_payments yet
       let cash = 0, due = 0;
       filteredSales.forEach(s => {
-          cash += s.paid_amount;
-          due += s.due_amount;
+          cash += Number(s.paid_amount) || 0;
+          due += Number(s.due_amount) || 0;
       });
       return [
           { name: 'Cash/Paid', value: cash },
@@ -213,7 +230,7 @@ export default function Dashboard() {
           </div>
           <div className={styles.cardInfo}>
             <p className={styles.cardLabel}>মোট পণ্য</p>
-            <h3 className={styles.cardValue}>{activeProducts}</h3>
+            <h3 className={styles.cardValue}>{activeProductsCount}</h3>
           </div>
         </div>
 
@@ -360,7 +377,7 @@ export default function Dashboard() {
                 <AlertTriangle size={18} color="#f59e0b" />
                 <div className={styles.alertInfo}>
                   <p>{product.name}</p>
-                  <span style={{fontSize: '0.8rem', color: 'var(--text-muted)'}}>Only {product.stock} left</span>
+                  <span style={{fontSize: '0.8rem', color: 'var(--text-muted)'}}>Only {product.calculatedStock} left</span>
                 </div>
               </div>
             ))}

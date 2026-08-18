@@ -88,6 +88,11 @@ export default function POSPage() {
         productsRef.current = products;
     }, [products]);
 
+    const variantsRef = useRef(variants);
+    useEffect(() => {
+        variantsRef.current = variants;
+    }, [variants]);
+
     const scannerLock = useRef<Promise<void>>(Promise.resolve());
 
     useEffect(() => {
@@ -119,9 +124,45 @@ export default function POSPage() {
     // Filter Products
     const filteredProducts = products.filter(p => {
         if (activeCat !== 'all' && p.category_id !== activeCat) return false;
-        if (searchQ && !p.name.toLowerCase().includes(searchQ.toLowerCase()) && !p.sku.toLowerCase().includes(searchQ.toLowerCase())) return false;
+        if (searchQ) {
+            const q = searchQ.trim().toLowerCase();
+            const matchName = p.name.toLowerCase().includes(q);
+            const matchSku = p.sku && p.sku.toLowerCase().includes(q);
+            const pVars = p.has_variants ? variants.filter(v => v.product_id === p.id) : [];
+            const matchVarSku = pVars.some(v => v.sku && v.sku.toLowerCase().includes(q));
+            if (!matchName && !matchSku && !matchVarSku) return false;
+        }
         return true;
     });
+
+    const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter' && searchQ.trim()) {
+            const query = searchQ.trim().toLowerCase();
+            
+            const matchingVariant = variants.find(v => v.sku && v.sku.toLowerCase() === query);
+            if (matchingVariant) {
+                const parentProduct = products.find(p => p.id === matchingVariant.product_id);
+                if (parentProduct) {
+                    addToCart(parentProduct, matchingVariant);
+                    showToast(`Added ${parentProduct.name} (${matchingVariant.variant_value}) to cart!`, 'success');
+                    setSearchQ('');
+                    return;
+                }
+            }
+
+            const matchingProduct = products.find(p => p.sku && p.sku.toLowerCase() === query);
+            if (matchingProduct) {
+                if (matchingProduct.has_variants) {
+                    setVariantModal(matchingProduct);
+                } else {
+                    addToCart(matchingProduct);
+                    showToast(`Added ${matchingProduct.name} to cart!`, 'success');
+                }
+                setSearchQ('');
+                return;
+            }
+        }
+    };
 
     const filteredCustomers = customers.filter(c =>
         c.name.toLowerCase().includes(custSearch.toLowerCase()) ||
@@ -434,7 +475,21 @@ export default function POSPage() {
 
         const result = parseQRContent(decodedText);
         if (result.type === 'sku') {
-            const p = productsRef.current.find(prod => prod.sku.toLowerCase() === result.identifier.toLowerCase());
+            const scannedSku = result.identifier.toLowerCase();
+
+            // 1. Check if SKU matches a specific Product Variant
+            const matchingVariant = variantsRef.current.find(v => v.sku && v.sku.toLowerCase() === scannedSku);
+            if (matchingVariant) {
+                const parentProduct = productsRef.current.find(p => p.id === matchingVariant.product_id);
+                if (parentProduct) {
+                    addToCart(parentProduct, matchingVariant);
+                    showToast(`Added ${parentProduct.name} (${matchingVariant.variant_value}) to cart!`, 'success');
+                    return;
+                }
+            }
+
+            // 2. Check if SKU matches a Main Product
+            const p = productsRef.current.find(prod => prod.sku && prod.sku.toLowerCase() === scannedSku);
             if (p) {
                 if (p.has_variants) {
                     setVariantModal(p);
@@ -442,9 +497,10 @@ export default function POSPage() {
                     addToCart(p);
                     showToast(`Added ${p.name} to cart!`, 'success');
                 }
-            } else {
-                showToast(`Product not found for SKU: ${result.identifier}`, 'error');
+                return;
             }
+
+            showToast(`Product not found for SKU: ${result.identifier}`, 'error');
         } else {
             showToast(`Unknown QR format: ${decodedText}`, 'error');
         }
@@ -817,41 +873,48 @@ export default function POSPage() {
                             />
                         </div>
                     </div>
-                    <div className={styles.scannerBody}>
-                        <video
-                            ref={videoRef}
-                            style={{ width: '100%', borderRadius: 'var(--radius)', objectFit: 'cover', display: isCameraActive ? 'block' : 'none' }}
-                        ></video>
-                        {!isCameraActive && (
-                            <div style={{ width: '100%', height: '200px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--background)', borderRadius: 'var(--radius)', color: 'var(--text-muted)' }}>
-                                <CameraOff size={48} style={{ marginBottom: 8, opacity: 0.5 }} />
-                                <p>Camera Paused</p>
-                            </div>
-                        )}
+                    {isCameraActive ? (
+                        <div className={styles.scannerBody}>
+                            <video
+                                ref={videoRef}
+                                autoPlay
+                                playsInline
+                                muted
+                                style={{ width: '100%', borderRadius: 'var(--radius)', objectFit: 'cover' }}
+                            ></video>
+                        </div>
+                    ) : (
+                        <div style={{ padding: '0.4rem 0.75rem', background: 'var(--background)', borderRadius: 'var(--radius)', fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <CameraOff size={16} />
+                            <span>Camera Paused. Click "Start" to scan QR.</span>
+                        </div>
+                    )}
+                </div>
+
+                {/* Sticky Header: Search Bar & Category Filter */}
+                <div className={styles.stickySearchHeader}>
+                    <div className={styles.searchBar}>
+                        <input type="text" placeholder="Search by name or SKU..." value={searchQ} onChange={e => setSearchQ(e.target.value)} onKeyDown={handleSearchKeyDown} />
+                        <button
+                            className={styles.mobileProductToggle}
+                            onClick={() => setShowMobileProducts(!showMobileProducts)}
+                            title="Toggle Product List"
+                        >
+                            <List size={20} />
+                            {showMobileProducts ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                        </button>
                     </div>
-                </div>
 
-                <div className={styles.searchBar}>
-                    <input type="text" placeholder="Search by name or SKU..." value={searchQ} onChange={e => setSearchQ(e.target.value)} />
-                    <button
-                        className={styles.mobileProductToggle}
-                        onClick={() => setShowMobileProducts(!showMobileProducts)}
-                        title="Toggle Product List"
-                    >
-                        <List size={20} />
-                        {showMobileProducts ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                    </button>
-                </div>
-
-                <div className={`${styles.productSection} ${!showMobileProducts ? styles.hideOnMobile : ''}`}>
-                    <div className={styles.categoryList}>
+                    <div className={`${styles.categoryList} ${!showMobileProducts ? styles.hideOnMobile : ''}`}>
                         <button className={`${styles.categoryBtn} ${activeCat === 'all' ? styles.active : ''}`} onClick={() => setActiveCat('all')}>All Items</button>
                         {categories.map(c => (
                             <button key={c.id} className={`${styles.categoryBtn} ${activeCat === c.id ? styles.active : ''}`} onClick={() => setActiveCat(c.id)}>{c.name}</button>
                         ))}
                     </div>
+                </div>
 
-                    <div className={styles.productGrid}>
+                {/* Product Grid */}
+                <div className={`${styles.productGrid} ${!showMobileProducts ? styles.hideOnMobile : ''}`}>
                         {filteredProducts.map(p => (
                             <div key={p.id} className={`${styles.productCard} ${p.stock <= 0 && !p.has_variants ? styles.outOfStock : ''}`} onClick={() => {
                                 if (p.has_variants) {
@@ -873,7 +936,6 @@ export default function POSPage() {
                             </div>
                         ))}
                     </div>
-                </div>
             </div>
 
             {/* Right Pane: Cart */}

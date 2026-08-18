@@ -83,7 +83,7 @@ export default function SalesHistoryPage() {
                                 <td data-label="Actions">
                                     <button 
                                         className={styles.actionBtn} 
-                                        onClick={() => router.push(`/sales/${sale.id}`)}
+                                        onClick={() => router.push(`/sales/details?id=${sale.id}`)}
                                         title="View Details"
                                         style={{display: 'flex', alignItems: 'center', gap: '0.25rem', background: 'var(--surface)', border: '1px solid var(--border)', padding: '0.25rem 0.5rem'}}
                                     >
