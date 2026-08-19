@@ -5,9 +5,10 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { localDB } from '@/lib/db/local';
 import { supabase } from '@/lib/supabase/client';
 import { fullSync } from '@/lib/sync';
-import { Save, Store, Globe, Receipt, Calculator, QrCode, CreditCard, Package, ToggleLeft, Palette, Database, CloudSync } from 'lucide-react';
+import { Save, Store, Globe, Receipt, Calculator, QrCode, CreditCard, Package, ToggleLeft, Palette, Database, CloudSync, Eye, X, Image as ImageIcon } from 'lucide-react';
 import styles from './settings.module.css';
 import { v4 as uuidv4 } from 'uuid';
+import QRCode from 'qrcode';
 
 import { useAuth } from '@/lib/contexts/AuthContext';
 
@@ -24,6 +25,16 @@ export default function SettingsPage() {
     const [regional, setRegional] = useState({ symbol: '৳', code: 'BDT', timezone: 'Asia/Dhaka', dateFormat: 'DD/MM/YYYY' });
     // Section 3: Invoice / Receipt
     const [receipt, setReceipt] = useState({ prefix: 'INV-', showLogo: true, showCustomer: true, showCashier: true, showQR: false, footer: 'ধন্যবাদ! আবার আসবেন।', size: '80mm' });
+    const [showReceiptPreview, setShowReceiptPreview] = useState(false);
+    const [qrPreviewDataUrl, setQrPreviewDataUrl] = useState<string>('');
+
+    useEffect(() => {
+        if (receipt.showQR) {
+            QRCode.toDataURL(`${receipt.prefix || 'INV-'}2026-84920`, { margin: 1, width: 120 })
+                .then(url => setQrPreviewDataUrl(url))
+                .catch(() => setQrPreviewDataUrl(''));
+        }
+    }, [receipt.prefix, receipt.showQR]);
     // Section 4: Tax / VAT
     const [tax, setTax] = useState({ enabled: false, name: 'VAT', rate: 0, type: 'Exclusive' });
     // Section 5: QR Code Config
@@ -288,9 +299,32 @@ export default function SettingsPage() {
                                 <option value="A4">A4</option>
                             </select>
                         </div>
-                        <button className={styles.saveButton} disabled={saving} onClick={() => handleSave('receipt', receipt)}>
-                            <Save size={16} style={{display:'inline', marginRight: '5px', verticalAlign: 'text-bottom'}}/> Save
-                        </button>
+                        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem' }}>
+                            <button className={styles.saveButton} style={{ flex: 1, margin: 0 }} disabled={saving} onClick={() => handleSave('receipt', receipt)}>
+                                <Save size={16} style={{ display: 'inline', marginRight: '5px', verticalAlign: 'text-bottom' }} /> Save
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setShowReceiptPreview(true)}
+                                style={{
+                                    flex: 1,
+                                    padding: '0.75rem 1rem',
+                                    background: 'rgba(59, 130, 246, 0.12)',
+                                    color: '#60a5fa',
+                                    border: '1.5px solid #3b82f6',
+                                    borderRadius: 'var(--radius)',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '0.5rem',
+                                    transition: 'all 0.2s ease'
+                                }}
+                            >
+                                <Eye size={18} /> Preview Receipt
+                            </button>
+                        </div>
                     </div>
                 )}
 
@@ -516,6 +550,190 @@ export default function SettingsPage() {
                     </div>
                 )}
             </div>
+
+            {/* RECEIPT PREVIEW MODAL */}
+            {showReceiptPreview && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0, left: 0, right: 0, bottom: 0,
+                    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+                    backdropFilter: 'blur(8px)',
+                    WebkitBackdropFilter: 'blur(8px)',
+                    zIndex: 2000,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '1rem'
+                }}>
+                    <div style={{
+                        background: 'var(--surface)',
+                        borderRadius: '12px',
+                        border: '1px solid var(--border)',
+                        maxWidth: '520px',
+                        width: '100%',
+                        maxHeight: '90vh',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        overflow: 'hidden',
+                        boxShadow: '0 20px 25px -5px rgba(0,0,0,0.5)'
+                    }}>
+                        {/* Modal Header */}
+                        <div style={{
+                            padding: '1rem 1.25rem',
+                            borderBottom: '1px solid var(--border)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            background: 'var(--background)'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <Eye size={20} color="var(--primary)" />
+                                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: 'var(--text)' }}>Receipt Live Preview</h3>
+                            </div>
+                            <button onClick={() => setShowReceiptPreview(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}>
+                                <X size={22} />
+                            </button>
+                        </div>
+
+                        {/* Modal Body with thermal receipt mockup */}
+                        <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', background: '#0f172a', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                            <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '1rem', textAlign: 'center' }}>
+                                Interactive Preview based on current settings ({receipt.size || '80mm Thermal'}):
+                            </div>
+
+                            {/* Thermal Receipt Paper */}
+                            <div style={{
+                                width: receipt.size === '58mm Thermal' ? '260px' : (receipt.size === 'A4' ? '440px' : '340px'),
+                                background: '#ffffff',
+                                color: '#000000',
+                                padding: '20px 18px',
+                                borderRadius: '4px',
+                                boxShadow: '0 10px 25px rgba(0,0,0,0.4)',
+                                fontFamily: 'monospace',
+                                fontSize: receipt.size === '58mm Thermal' ? '11px' : '12px',
+                                lineHeight: '1.4',
+                                border: '1px solid #e2e8f0',
+                                transition: 'all 0.3s ease'
+                            }}>
+                                {/* Header Logo & Store Info */}
+                                <div style={{ textAlign: 'center', borderBottom: '1px dashed #000', paddingBottom: '12px', marginBottom: '10px' }}>
+                                    {receipt.showLogo && (
+                                        <div style={{ marginBottom: '8px', display: 'flex', justifyContent: 'center' }}>
+                                            {bizInfo.logo ? (
+                                                <img src={bizInfo.logo} style={{ maxHeight: '50px', maxWidth: '120px', objectFit: 'contain' }} alt="Store Logo" />
+                                            ) : (
+                                                <div style={{ background: '#f1f5f9', border: '1px dashed #cbd5e1', padding: '4px 12px', borderRadius: '4px', fontSize: '10px', color: '#475569', fontWeight: 'bold' }}>
+                                                    [STORE LOGO]
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                    <div style={{ fontWeight: 'bold', fontSize: receipt.size === '58mm Thermal' ? '14px' : '16px' }}>{bizInfo.name || 'QRPOS Super Shop'}</div>
+                                    <div style={{ fontSize: '11px', color: '#333333' }}>Phone: {bizInfo.phone || '01700-000000'}</div>
+                                    <div style={{ fontSize: '11px', color: '#333333' }}>{bizInfo.address || 'Dhaka, Bangladesh'}</div>
+                                </div>
+
+                                {/* Invoice Meta */}
+                                <div style={{ borderBottom: '1px dashed #000', paddingBottom: '10px', marginBottom: '10px' }}>
+                                    <div>Invoice: <strong>{receipt.prefix || 'INV-'}2026-84920</strong></div>
+                                    <div>Date: {new Date().toLocaleDateString('en-GB')} {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                                    {receipt.showCustomer && <div>Customer: Rahim Store (01711223344)</div>}
+                                    {receipt.showCashier && <div>Cashier: Admin (Tanvir)</div>}
+                                </div>
+
+                                {/* Sample Items Table */}
+                                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', marginBottom: '10px' }}>
+                                    <thead>
+                                        <tr style={{ borderBottom: '1px dashed #000' }}>
+                                            <th style={{ padding: '4px 0' }}>Item</th>
+                                            <th style={{ padding: '4px 0', textAlign: 'center' }}>Qty</th>
+                                            <th style={{ padding: '4px 0', textAlign: 'right' }}>Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr style={{ borderBottom: '1px dashed #eee' }}>
+                                            <td style={{ padding: '4px 0' }}>Basmati Rice 5kg</td>
+                                            <td style={{ padding: '4px 0', textAlign: 'center' }}>1</td>
+                                            <td style={{ padding: '4px 0', textAlign: 'right' }}>৳650.00</td>
+                                        </tr>
+                                        <tr style={{ borderBottom: '1px dashed #eee' }}>
+                                            <td style={{ padding: '4px 0' }}>Fresh Milk 1L</td>
+                                            <td style={{ padding: '4px 0', textAlign: 'center' }}>2</td>
+                                            <td style={{ padding: '4px 0', textAlign: 'right' }}>৳180.00</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+
+                                {/* Totals Breakdown */}
+                                <div style={{ borderTop: '1px dashed #000', paddingTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <span>Subtotal:</span>
+                                        <span>৳ 830.00</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#dc2626' }}>
+                                        <span>Discount:</span>
+                                        <span>- ৳ 30.00</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <span>VAT (15% Exclusive):</span>
+                                        <span>+ ৳ 120.00</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '14px', marginTop: '4px', paddingTop: '4px', borderTop: '1px solid #000' }}>
+                                        <span>Grand Total:</span>
+                                        <span>৳ 920.00</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px' }}>
+                                        <span>Paid (CASH):</span>
+                                        <span>৳ 1,000.00</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <span>Change:</span>
+                                        <span>৳ 80.00</span>
+                                    </div>
+                                </div>
+
+                                {/* QR Code Section */}
+                                {receipt.showQR && (
+                                    <div style={{ textAlign: 'center', marginTop: '14px', paddingTop: '10px', borderTop: '1px dashed #ccc' }}>
+                                        {qrPreviewDataUrl ? (
+                                            <img src={qrPreviewDataUrl} alt="Invoice QR" style={{ width: '90px', height: '90px', margin: '0 auto 4px auto', display: 'block' }} />
+                                        ) : (
+                                            <div style={{ width: '80px', height: '80px', border: '1px dashed #000', margin: '0 auto 4px auto', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px' }}>[QR Code]</div>
+                                        )}
+                                        <div style={{ fontSize: '10px', color: '#64748b' }}>Scan for Digital Invoice</div>
+                                    </div>
+                                )}
+
+                                {/* Footer Message */}
+                                {receipt.footer && (
+                                    <div style={{ textAlign: 'center', marginTop: '16px', fontStyle: 'italic', fontSize: '11px', whiteSpace: 'pre-line', borderTop: '1px dashed #e2e8f0', paddingTop: '10px' }}>
+                                        {receipt.footer}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Modal Footer Actions */}
+                        <div style={{ padding: '1rem', borderTop: '1px solid var(--border)', background: 'var(--surface)', display: 'flex', gap: '0.75rem' }}>
+                            <button
+                                onClick={() => {
+                                    handleSave('receipt', receipt);
+                                    setShowReceiptPreview(false);
+                                }}
+                                style={{ flex: 1, padding: '0.75rem', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: 'var(--radius)', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+                            >
+                                <Save size={18} /> Save Settings
+                            </button>
+                            <button
+                                onClick={() => setShowReceiptPreview(false)}
+                                style={{ padding: '0.75rem 1.25rem', background: 'var(--background)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', fontWeight: 600, cursor: 'pointer' }}
+                            >
+                                Close Preview
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

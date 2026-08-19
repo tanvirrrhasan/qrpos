@@ -10,6 +10,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { Product, ProductVariant, HeldCart } from '@/lib/types';
 import QrScanner from 'qr-scanner';
 import { parseQRContent } from '@/lib/qr-parser';
+import QRCode from 'qrcode';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { useToast } from '@/lib/contexts/ToastContext';
 import { DEFAULT_PERMISSIONS } from '@/lib/permissions';
@@ -83,6 +84,7 @@ export default function POSPage() {
     const variants = useLiveQuery(() => localDB.productVariants.toArray(), []) || [];
     const categories = useLiveQuery(() => localDB.categories.toArray(), []) || [];
     const customers = useLiveQuery(() => localDB.customers.toArray(), []) || [];
+    const staffList = useLiveQuery(() => localDB.staff.toArray(), []) || [];
     const heldCarts = useLiveQuery(() => localDB.heldCarts.toArray(), []) || [];
     const settings = useLiveQuery(() => localDB.settings.toArray(), []) || [];
 
@@ -94,6 +96,16 @@ export default function POSPage() {
     const taxSetting = useMemo(() => {
         const s = settings.find(x => x.setting_key === 'tax');
         return s?.setting_value || { enabled: false, name: 'VAT', rate: 0, type: 'Exclusive' };
+    }, [settings]);
+
+    const receiptSetting = useMemo(() => {
+        const s = settings.find(x => x.setting_key === 'receipt');
+        return s?.setting_value || { prefix: 'INV-', showLogo: true, showCustomer: true, showCashier: true, showQR: false, footer: 'ধন্যবাদ! আবার আসবেন।', size: '80mm' };
+    }, [settings]);
+
+    const bizSetting = useMemo(() => {
+        const s = settings.find(x => x.setting_key === 'business_info');
+        return s?.setting_value || { name: 'QRPOS Store', address: '', phone: '', logo: '' };
     }, [settings]);
 
     const availablePaymentMethods = useMemo(() => {
@@ -581,7 +593,7 @@ export default function POSPage() {
         setProcessing(true);
         try {
             const saleId = uuidv4();
-            const prefix = settings.find(s => s.setting_key === 'invoice_prefix')?.setting_value || 'INV-';
+            const prefix = receiptSetting.prefix || 'INV-';
             const invNo = `${prefix}${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`;
 
             const saleData = {
@@ -680,19 +692,36 @@ export default function POSPage() {
 
             // Create Receipt Data
             const custObj = selectedCustomer ? customers.find(c => c.id === selectedCustomer) : null;
-            const storeName = settings.find(s => s.setting_key === 'store_name')?.setting_value || 'QRPOS Store';
-            const storePhone = settings.find(s => s.setting_key === 'store_phone')?.setting_value || '';
-            const storeAddress = settings.find(s => s.setting_key === 'store_address')?.setting_value || '';
+            const staffObj = staffId ? staffList.find((s: any) => s.id === staffId) : null;
+
+            let qrDataUrl = '';
+            if (receiptSetting.showQR !== false) {
+                try {
+                    const publicUrl = `${window.location.origin}/inv?id=${saleId}`;
+                    qrDataUrl = await QRCode.toDataURL(publicUrl, { margin: 1, width: 120 });
+                } catch (e) {}
+            }
 
             setReceiptData({
-                storeName, storePhone, storeAddress,
+                storeName: bizSetting.name || 'QRPOS Store',
+                storePhone: bizSetting.phone || '',
+                storeAddress: bizSetting.address || '',
+                storeLogo: bizSetting.logo || null,
                 invoiceNo: invNo,
                 date: new Date().toLocaleString(),
                 customerName: custObj?.name || 'Walk-in Customer',
+                cashierName: staffObj?.name || 'Staff',
                 items: cart,
                 subtotal, discAmount, taxAmount, taxName: taxSetting.name || 'VAT', taxRate: taxSetting.rate, taxType: taxSetting.type, taxEnabled: taxSetting.enabled && Number(taxSetting.rate) > 0, grandTotal,
                 paid: actualPaid, due: dueAmount, change: changeAmount,
-                paymentMethod: paymentMethod.toUpperCase()
+                paymentMethod: paymentMethod.toUpperCase(),
+                showLogo: receiptSetting.showLogo !== false,
+                showCustomer: receiptSetting.showCustomer !== false,
+                showCashier: receiptSetting.showCashier !== false,
+                showQR: receiptSetting.showQR !== false,
+                qrDataUrl,
+                footer: receiptSetting.footer || 'ধন্যবাদ! আবার আসবেন।',
+                paperSize: receiptSetting.size || '80mm'
             });
 
             // Reset UI States
@@ -1655,15 +1684,32 @@ export default function POSPage() {
                             <button className={styles.closeBtn} onClick={() => setReceiptData(null)}><X size={24} /></button>
                         </div>
 
-                        <div id="receipt-print-area" style={{ background: '#fff', padding: '20px', borderRadius: '8px', color: '#000', margin: '20px 0', border: '1px solid #ccc', fontSize: '12px', fontFamily: 'monospace' }}>
-                            <h2 style={{ textAlign: 'center', margin: '0 0 5px 0' }}>{receiptData.storeName}</h2>
+                        <div id="receipt-print-area" style={{
+                            background: '#fff',
+                            padding: '20px 18px',
+                            borderRadius: '8px',
+                            color: '#000',
+                            margin: '20px auto',
+                            border: '1px solid #ccc',
+                            fontSize: receiptData.paperSize === '58mm Thermal' ? '11px' : '12px',
+                            fontFamily: 'monospace',
+                            maxWidth: receiptData.paperSize === '58mm Thermal' ? '260px' : '360px',
+                            width: '100%'
+                        }}>
+                            {receiptData.showLogo && receiptData.storeLogo && (
+                                <div style={{ textAlign: 'center', marginBottom: '8px' }}>
+                                    <img src={receiptData.storeLogo} style={{ maxHeight: '50px', maxWidth: '120px', objectFit: 'contain' }} alt="Logo" />
+                                </div>
+                            )}
+                            <h2 style={{ textAlign: 'center', margin: '0 0 5px 0', fontSize: receiptData.paperSize === '58mm Thermal' ? '14px' : '16px' }}>{receiptData.storeName}</h2>
                             {receiptData.storePhone && <div style={{ textAlign: 'center', marginBottom: '2px' }}>Phone: {receiptData.storePhone}</div>}
                             {receiptData.storeAddress && <div style={{ textAlign: 'center', marginBottom: '10px' }}>{receiptData.storeAddress}</div>}
 
                             <div style={{ borderBottom: '1px dashed #000', paddingBottom: '10px', marginBottom: '10px' }}>
-                                <div>Invoice: {receiptData.invoiceNo}</div>
+                                <div>Invoice: <strong>{receiptData.invoiceNo}</strong></div>
                                 <div>Date: {receiptData.date}</div>
-                                <div>Customer: {receiptData.customerName}</div>
+                                {receiptData.showCustomer && <div>Customer: {receiptData.customerName}</div>}
+                                {receiptData.showCashier && <div>Cashier: {receiptData.cashierName}</div>}
                             </div>
 
                             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', marginBottom: '10px' }}>
@@ -1726,9 +1772,18 @@ export default function POSPage() {
                                 )}
                             </div>
 
-                            <div style={{ textAlign: 'center', marginTop: '20px', fontStyle: 'italic' }}>
-                                Thank you for shopping with us!
-                            </div>
+                            {receiptData.showQR && receiptData.qrDataUrl && (
+                                <div style={{ textAlign: 'center', marginTop: '15px', paddingTop: '10px', borderTop: '1px dashed #ccc' }}>
+                                    <img src={receiptData.qrDataUrl} style={{ width: '90px', height: '90px', margin: '0 auto 4px auto', display: 'block' }} alt="Invoice QR" />
+                                    <div style={{ fontSize: '10px', color: '#555' }}>Scan for Digital Invoice</div>
+                                </div>
+                            )}
+
+                            {receiptData.footer && (
+                                <div style={{ textAlign: 'center', marginTop: '15px', fontStyle: 'italic', fontSize: '11px', whiteSpace: 'pre-line', borderTop: '1px dashed #e2e8f0', paddingTop: '8px' }}>
+                                    {receiptData.footer}
+                                </div>
+                            )}
                         </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginTop: '1rem' }}>
