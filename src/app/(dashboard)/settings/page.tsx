@@ -338,24 +338,8 @@ export default function SettingsPage() {
                             <select value={qrConfig.mode} onChange={e => setQrConfig({...qrConfig, mode: e.target.value})}>
                                 <option value="1">Mode 1: Text / SKU Only (e.g. QRPOS::SKU)</option>
                                 <option value="2">Mode 2: Direct Product Page URL (Public View)</option>
-                                <option value="3">Mode 3: Custom URL Pattern</option>
                             </select>
                         </div>
-
-                        {(qrConfig.mode === '3' || qrConfig.mode === 'Custom URL') && (
-                            <div className={styles.formGroup}>
-                                <label>Custom URL Pattern (For Mode 3)</label>
-                                <input 
-                                    type="text" 
-                                    placeholder="e.g. https://mydomain.com/p/{sku}" 
-                                    value={qrConfig.urlPattern || qrConfig.custom_url_pattern || ''} 
-                                    onChange={e => setQrConfig({...qrConfig, urlPattern: e.target.value, custom_url_pattern: e.target.value})} 
-                                />
-                                <span style={{fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.25rem', display: 'block'}}>
-                                    Use <code>&#123;sku&#125;</code> as placeholder for product SKU code. Example: <code>https://mywebsite.com/item/&#123;sku&#125;</code>
-                                </span>
-                            </div>
-                        )}
 
                         <button className={styles.saveButton} disabled={saving} onClick={() => handleSave('qr_config', qrConfig)}>
                             <Save size={16} style={{display:'inline', marginRight: '5px', verticalAlign: 'text-bottom'}}/> Save Settings

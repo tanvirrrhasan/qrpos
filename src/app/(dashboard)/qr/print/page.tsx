@@ -91,12 +91,6 @@ const QRLabel = ({
             if (qrMode === '2' || qrMode === 'App Page' || qrMode === 'Direct Product Page') {
                 const baseUrl = window.location.origin;
                 qrContent = `${baseUrl}/p?sku=${product.sku}`;
-            } else if ((qrMode === '3' || qrMode === 'Custom URL') && customUrlPattern) {
-                let pattern = customUrlPattern;
-                if (!pattern.includes('{sku}') && !pattern.includes('{id}')) {
-                    pattern = pattern.endsWith('/') ? `${pattern}{sku}` : `${pattern}/{sku}`;
-                }
-                qrContent = pattern.replace('{sku}', product.sku).replace('{id}', product.sku);
             }
 
             QRCode.toCanvas(canvasRef.current, qrContent, {
