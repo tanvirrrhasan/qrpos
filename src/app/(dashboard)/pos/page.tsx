@@ -1699,6 +1699,12 @@ export default function POSPage() {
                                         <span>- ৳ {receiptData.discAmount.toFixed(2)}</span>
                                     </div>
                                 )}
+                                {receiptData.taxEnabled && (
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <span>{receiptData.taxName || 'VAT'} ({receiptData.taxRate}% {receiptData.taxType}):</span>
+                                        <span>{receiptData.taxType === 'Inclusive' ? `(Incl. ৳${receiptData.taxAmount.toFixed(2)})` : `+ ৳${receiptData.taxAmount.toFixed(2)}`}</span>
+                                    </div>
+                                )}
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '14px', marginTop: '5px', paddingTop: '5px', borderTop: '1px solid #000' }}>
                                     <span>Grand Total:</span>
                                     <span>৳ {receiptData.grandTotal.toFixed(2)}</span>
