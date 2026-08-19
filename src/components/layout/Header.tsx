@@ -47,6 +47,7 @@ export default function Header() {
     const [showNotifPopover, setShowNotifPopover] = useState(false);
     const [isSyncing, setIsSyncing] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [showLogoutModal, setShowLogoutModal] = useState(false);
 
     const searchRef = useRef<HTMLDivElement>(null);
     const notifRef = useRef<HTMLDivElement>(null);
@@ -121,7 +122,9 @@ export default function Header() {
         }
     };
 
-    const handleLogout = async () => {
+    const handleConfirmLogout = async () => {
+        setShowLogoutModal(false);
+        setIsMobileMenuOpen(false);
         await supabase.auth.signOut();
         router.push('/login');
     };
@@ -299,11 +302,6 @@ export default function Header() {
                         <span>🏬 {storeName}</span>
                     </div>
 
-                    {/* Logout Button */}
-                    <button onClick={handleLogout} className={styles.iconButton} title="Logout" style={{ color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer' }}>
-                        <LogOut size={20} />
-                    </button>
-
                     {/* Mobile Menu / Close Toggle Button (Far Right of Top Bar) */}
                     <button 
                         className={`${styles.mobileMenuBtn} ${isMobileMenuOpen ? styles.mobileMenuBtnActive : ''}`}
@@ -356,17 +354,47 @@ export default function Header() {
                         </nav>
 
                         <div className={styles.mobileUserFooter}>
-                            <div className={styles.avatar}>{profile?.name ? profile.name[0].toUpperCase() : 'U'}</div>
-                            <div className={styles.userInfo}>
-                                <p className={styles.userName}>{profile?.name || 'User'}</p>
-                                <p className={styles.userRole} style={{ textTransform: 'capitalize' }}>{role || 'Staff'}</p>
-                            </div>
-                            <button onClick={handleLogout} className={styles.logoutBtn} title="Sign Out">
+                            <Link href="/profile" onClick={() => setIsMobileMenuOpen(false)} className={styles.profileLink} title="View & Edit Profile">
+                                <div className={styles.avatar}>{profile?.name ? profile.name[0].toUpperCase() : 'U'}</div>
+                                <div className={styles.userInfo}>
+                                    <p className={styles.userName}>{profile?.name || 'User'}</p>
+                                    <p className={styles.userRole} style={{ textTransform: 'capitalize' }}>{role || 'Staff'}</p>
+                                </div>
+                            </Link>
+                            <button onClick={() => setShowLogoutModal(true)} className={styles.logoutBtn} title="Sign Out">
                                 <LogOut size={18} />
                             </button>
                         </div>
                     </aside>
                 </>
+            )}
+
+            {/* Logout Confirmation Modal */}
+            {showLogoutModal && (
+                <div style={{ backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', backgroundColor: 'rgba(15, 23, 42, 0.65)', zIndex: 3000, position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+                    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '14px', width: '100%', maxWidth: '360px', padding: '1.5rem', textAlign: 'center', boxShadow: '0 20px 40px rgba(0,0,0,0.5)' }}>
+                        <div style={{ width: '54px', height: '54px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.12)', color: 'var(--danger)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem auto' }}>
+                            <LogOut size={26} />
+                        </div>
+                        <h3 style={{ fontSize: '1.15rem', fontWeight: 700, margin: '0 0 0.4rem 0', color: 'var(--text-main)' }}>Confirm Logout</h3>
+                        <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', margin: '0 0 1.5rem 0', lineHeight: 1.4 }}>Are you sure you want to log out of your session?</p>
+                        
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                            <button 
+                                onClick={() => setShowLogoutModal(false)}
+                                style={{ padding: '0.7rem', background: 'var(--background)', color: 'var(--text-main)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', fontWeight: 600, cursor: 'pointer' }}
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={handleConfirmLogout}
+                                style={{ padding: '0.7rem', background: 'var(--danger)', color: 'white', border: 'none', borderRadius: 'var(--radius)', fontWeight: 600, cursor: 'pointer' }}
+                            >
+                                Yes, Logout
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </>
     );

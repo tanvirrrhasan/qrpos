@@ -1,0 +1,277 @@
+.container {
+    padding: 1.5rem;
+    max-width: 900px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+/* Header Card */
+.headerCard {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.75rem;
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.avatarWrapper {
+    position: relative;
+}
+
+.avatar {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary) 0%, #2563eb 100%);
+    color: white;
+    font-weight: 700;
+    font-size: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
+}
+
+.headerDetails {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.userName {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 0;
+}
+
+.roleBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: rgba(59, 130, 246, 0.12);
+    color: var(--primary);
+    padding: 0.25rem 0.65rem;
+    border-radius: 20px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.metaRow {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    flex-wrap: wrap;
+}
+
+/* Tabs Row */
+.tabsRow {
+    display: flex;
+    gap: 0.75rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0.5rem;
+}
+
+.tabBtn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.65rem 1.25rem;
+    border-radius: var(--radius);
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.tabBtn:hover {
+    background: var(--surface);
+    color: var(--text-main);
+}
+
+.activeTab {
+    background: var(--surface) !important;
+    color: var(--primary) !important;
+    border: 1px solid var(--border);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Content Card */
+.contentCard {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.75rem;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+}
+
+.cardHeader {
+    margin-bottom: 1.5rem;
+}
+
+.cardHeader h2 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 0 0 0.25rem 0;
+}
+
+.cardHeader p {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin: 0;
+}
+
+/* Alert Notification */
+.alert {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.85rem 1.1rem;
+    border-radius: var(--radius);
+    font-size: 0.88rem;
+    font-weight: 500;
+    margin-bottom: 1.5rem;
+}
+
+.alertSuccess {
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    color: #10b981;
+}
+
+.alertError {
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: var(--danger);
+}
+
+/* Form Layout */
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.inputGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+}
+
+.inputGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.inputGroup label {
+    font-size: 0.83rem;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.inputWithIcon {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.fieldIcon {
+    position: absolute;
+    left: 12px;
+    color: var(--text-muted);
+}
+
+.inputWithIcon input {
+    width: 100%;
+    padding: 0.7rem 1rem 0.7rem 2.6rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--background);
+    color: var(--text-main);
+    font-size: 0.9rem;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.inputWithIcon input:focus {
+    border-color: var(--primary);
+}
+
+.eyeBtn {
+    position: absolute;
+    right: 10px;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+}
+
+.hint {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 0.2rem;
+}
+
+.formActions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 0.5rem;
+}
+
+.saveBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: var(--radius);
+    padding: 0.75rem 1.5rem;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(59, 130, 246, 0.3);
+    transition: opacity 0.2s;
+}
+
+.saveBtn:hover {
+    opacity: 0.9;
+}
+
+.saveBtn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+    .headerCard {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .metaRow {
+        justify-content: center;
+    }
+
+    .inputGrid {
+        grid-template-columns: 1fr;
+    }
+}

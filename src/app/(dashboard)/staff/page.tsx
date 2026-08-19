@@ -94,39 +94,74 @@ export default function StaffPage() {
         
         setProcessing(true);
         try {
+            let realAuthUserId = editingStaff?.auth_user_id || null;
+
+            // If creating a new staff member and password is provided, create real Supabase Auth user!
+            if (!editingStaff && formEmail && formPassword) {
+                const { data: authData, error: authErr } = await supabase.auth.signUp({
+                    email: formEmail.trim(),
+                    password: formPassword,
+                    options: {
+                        data: {
+                            name: formName,
+                            role: formRole
+                        }
+                    }
+                });
+
+                if (authErr) {
+                    console.warn('Supabase Auth Sign Up Note:', authErr.message);
+                    if (!authErr.message.includes('already registered')) {
+                        throw new Error('Auth Account Creation Failed: ' + authErr.message);
+                    }
+                }
+
+                if (authData?.user?.id) {
+                    realAuthUserId = authData.user.id;
+                }
+            }
+
             const staffData = {
                 id: editingStaff ? editingStaff.id : uuidv4(),
                 store_id: storeId,
-                name: formName,
-                phone: formPhone,
-                email: formEmail,
+                auth_user_id: realAuthUserId || `user-${uuidv4().slice(0,8)}`,
+                name: formName.trim(),
+                phone: formPhone.trim(),
+                email: formEmail.trim(),
                 role: formRole,
                 permissions: permissions,
-                pin_code: formPin,
+                pin_code: formPin.trim(),
                 is_active: formIsActive,
                 created_at: editingStaff ? editingStaff.created_at : new Date().toISOString(),
                 updated_at: new Date().toISOString(),
-                // auth_user_id normally comes from Supabase Auth after createUser
-                auth_user_id: editingStaff ? editingStaff.auth_user_id : `mock-auth-${uuidv4().slice(0,8)}`
             };
 
+            // Save to Dexie IndexedDB
             await localDB.staff.put(staffData);
+
+            // Sync directly to Supabase staff table
+            try {
+                await supabase.from('staff').upsert([staffData]);
+            } catch (sbErr) {
+                console.error('Supabase staff sync warning:', sbErr);
+            }
             
-            // Log action
+            // Log activity
             await localDB.activityLog.put({
                 id: uuidv4(),
                 store_id: storeId,
-                staff_id: 'owner', // Hardcoded as owner taking action for now
+                staff_id: 'owner',
                 action: editingStaff ? 'staff_updated' : 'staff_created',
                 entity_type: 'staff',
                 entity_id: staffData.id,
-                details: { role: formRole },
+                details: { name: formName, role: formRole, email: formEmail },
                 created_at: new Date().toISOString()
             });
 
+            alert(editingStaff ? 'Staff member updated successfully!' : 'Staff created successfully! They can now log in directly using their Email & Password.');
             setIsModalOpen(false);
         } catch (err: any) {
-            alert('Error saving staff: ' + err.message);
+            alert('Error saving staff: ' + (err.message || 'Unknown error'));
         } finally {
             setProcessing(false);
         }
