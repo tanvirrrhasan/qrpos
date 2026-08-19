@@ -101,8 +101,9 @@ function CustomerProfileContent() {
             due_added: s.due_amount,
             invoice: s.invoice_no,
             status: s.payment_status,
-            method: s.payment_method,
-            staff_id: s.staff_id
+            method: (s as any).payment_method || 'cash',
+            staff_id: s.staff_id,
+            ref: null
         })),
         ...duePayments.map(dp => ({
             type: 'payment',
@@ -161,8 +162,8 @@ function CustomerProfileContent() {
                 customer_id: customer.id,
                 amount: amount,
                 payment_method: duePaymentMethod,
-                reference_no: dueRef || null,
-                notes: dueNotes || null,
+                reference_no: dueRef || undefined,
+                notes: dueNotes || undefined,
                 received_by: userId || undefined,
                 payment_date: paymentDate,
                 created_at: paymentDate,

@@ -27,7 +27,7 @@ export default function SettingsPage() {
     // Section 4: Tax / VAT
     const [tax, setTax] = useState({ enabled: false, name: 'VAT', rate: 0, type: 'Exclusive' });
     // Section 5: QR Code Config
-    const [qrConfig, setQrConfig] = useState({ mode: 'Text Only', urlPattern: '', showName: true, showPrice: true, showSku: true, showStore: false, size: 'Medium' });
+    const [qrConfig, setQrConfig] = useState<{ mode: string; urlPattern: string; custom_url_pattern?: string; showName: boolean; showPrice: boolean; showSku: boolean; showStore: boolean; size: string }>({ mode: 'Text Only', urlPattern: '', custom_url_pattern: '', showName: true, showPrice: true, showSku: true, showStore: false, size: 'Medium' });
     // Section 6: Payment Methods
     const [payments, setPayments] = useState({ cash: true, bkash: true, nagad: true, rocket: false, bank: false, card: false });
     // Section 7: Inventory
@@ -89,6 +89,7 @@ export default function SettingsPage() {
                     for (const [subKey, subVal] of Object.entries(value)) {
                         await localDB.settings.put({
                             id: `qr_config.${subKey}`,
+                            store_id: storeId,
                             setting_key: `qr_config.${subKey}`,
                             setting_value: String(subVal),
                             updated_at: new Date().toISOString()

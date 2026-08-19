@@ -230,6 +230,7 @@ export default function QRPrintPage() {
         try {
             await localDB.settings.put({
                 id: `qr_config.${key}`,
+                store_id: '',
                 setting_key: `qr_config.${key}`,
                 setting_value: val,
                 updated_at: new Date().toISOString()
