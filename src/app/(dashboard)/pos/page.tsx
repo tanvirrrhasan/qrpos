@@ -91,6 +91,11 @@ export default function POSPage() {
         return s?.setting_value || { cash: true, bkash: true, nagad: true, rocket: false, bank: false, card: false };
     }, [settings]);
 
+    const taxSetting = useMemo(() => {
+        const s = settings.find(x => x.setting_key === 'tax');
+        return s?.setting_value || { enabled: false, name: 'VAT', rate: 0, type: 'Exclusive' };
+    }, [settings]);
+
     const availablePaymentMethods = useMemo(() => {
         const list = [];
         if (paymentSettings.cash !== false) list.push({ id: 'cash', label: 'Cash', icon: Banknote, activeColor: 'var(--primary)' });
@@ -269,8 +274,23 @@ export default function POSPage() {
     const discNum = typeof overallDiscount.value === 'number' ? overallDiscount.value : 0;
     const rawDiscAmount = overallDiscount.type === '৳' ? discNum : (subtotal * discNum / 100);
     const discAmount = Math.round(rawDiscAmount);
-    // Enforce overall max discount check and round to whole integer Taka
-    const grandTotal = Math.round(Math.max(0, subtotal - discAmount));
+    const taxableSubtotal = Math.max(0, subtotal - discAmount);
+
+    let taxAmount = 0;
+    let grandTotal = taxableSubtotal;
+
+    if (taxSetting.enabled && Number(taxSetting.rate) > 0) {
+        const rate = Number(taxSetting.rate);
+        if (taxSetting.type === 'Inclusive') {
+            taxAmount = Math.round(taxableSubtotal - (taxableSubtotal / (1 + (rate / 100))));
+            grandTotal = taxableSubtotal;
+        } else {
+            taxAmount = Math.round(taxableSubtotal * (rate / 100));
+            grandTotal = Math.round(taxableSubtotal + taxAmount);
+        }
+    } else {
+        grandTotal = Math.round(taxableSubtotal);
+    }
 
     const handleOverallDiscountChange = (type: '%' | '৳', valInput: number | '') => {
         const val = typeof valInput === 'number' ? valInput : 0;
@@ -567,7 +587,7 @@ export default function POSPage() {
             const saleData = {
                 id: saleId, store_id: storeId, invoice_no: invNo, customer_id: selectedCustomer || null,
                 staff_id: staffId, subtotal, discount_type: overallDiscount.type, discount_value: overallDiscount.value,
-                discount_amount: discAmount, tax_amount: 0, total: grandTotal,
+                discount_amount: discAmount, tax_amount: taxAmount, total: grandTotal,
                 paid_amount: actualPaid > grandTotal ? grandTotal : actualPaid,
                 due_amount: dueAmount,
                 payment_status: dueAmount === 0 ? 'paid' : (actualPaid > 0 ? 'partial' : 'due'),
@@ -670,7 +690,7 @@ export default function POSPage() {
                 date: new Date().toLocaleString(),
                 customerName: custObj?.name || 'Walk-in Customer',
                 items: cart,
-                subtotal, discAmount, grandTotal,
+                subtotal, discAmount, taxAmount, taxName: taxSetting.name || 'VAT', taxRate: taxSetting.rate, taxType: taxSetting.type, taxEnabled: taxSetting.enabled && Number(taxSetting.rate) > 0, grandTotal,
                 paid: actualPaid, due: dueAmount, change: changeAmount,
                 paymentMethod: paymentMethod.toUpperCase()
             });
@@ -808,6 +828,14 @@ export default function POSPage() {
             if (receiptData.discAmount > 0) {
                 svgLines.push(`<text x="15" y="${y}" font-family="monospace" font-size="11" fill="#000000">Discount:</text>`);
                 svgLines.push(`<text x="${width - 15}" y="${y}" font-family="monospace" font-size="11" text-anchor="end" fill="#000000">-৳${receiptData.discAmount.toFixed(2)}</text>`);
+                y += 16;
+            }
+
+            if (receiptData.taxEnabled) {
+                const taxLabel = `${receiptData.taxName || 'VAT'} (${receiptData.taxRate}% ${receiptData.taxType}):`;
+                const taxVal = receiptData.taxType === 'Inclusive' ? `(Incl. ৳${receiptData.taxAmount.toFixed(2)})` : `+৳${receiptData.taxAmount.toFixed(2)}`;
+                svgLines.push(`<text x="15" y="${y}" font-family="monospace" font-size="11" fill="#000000">${escapeXml(taxLabel)}</text>`);
+                svgLines.push(`<text x="${width - 15}" y="${y}" font-family="monospace" font-size="11" text-anchor="end" fill="#000000">${escapeXml(taxVal)}</text>`);
                 y += 16;
             }
 
@@ -1152,6 +1180,22 @@ export default function POSPage() {
                         </span>
                         <span>৳ {subtotal.toFixed(2)}</span>
                     </div>
+                    {discAmount > 0 && (
+                        <div className={styles.summaryRow} style={{ color: '#ef4444' }}>
+                            <span>Discount {overallDiscount.type === '%' && typeof overallDiscount.value === 'number' && overallDiscount.value > 0 ? `(${overallDiscount.value}%)` : ''}:</span>
+                            <span>- ৳ {discAmount.toFixed(2)}</span>
+                        </div>
+                    )}
+                    {taxSetting.enabled && Number(taxSetting.rate) > 0 && (
+                        <div className={styles.summaryRow} style={{ color: taxSetting.type === 'Inclusive' ? 'var(--text-muted)' : 'var(--primary)', fontSize: '0.85rem' }}>
+                            <span>{taxSetting.name || 'VAT'} ({taxSetting.rate}% {taxSetting.type}):</span>
+                            <span>{taxSetting.type === 'Inclusive' ? `(Incl. ৳${taxAmount.toFixed(2)})` : `+ ৳${taxAmount.toFixed(2)}`}</span>
+                        </div>
+                    )}
+                    <div className={styles.summaryTotal}>
+                        <span>Total Payable:</span>
+                        <span style={{ color: 'var(--primary)' }}>৳ {grandTotal.toFixed(2)}</span>
+                    </div>
                 </div>
 
                 <div className={styles.cartActions}>
@@ -1162,7 +1206,7 @@ export default function POSPage() {
                         <Trash2 size={20} /> <span>Clear</span>
                     </button>
                     <button className={styles.fastCashBtn} onClick={() => setCheckoutModal(true)} disabled={cart.length === 0}>
-                        Checkout (৳ {subtotal.toFixed(0)})
+                        Checkout (৳ {grandTotal.toFixed(0)})
                     </button>
                 </div>
             </div>
@@ -1204,27 +1248,28 @@ export default function POSPage() {
                                 <div className={styles.checkoutLeft}>
 
                                     <div style={{ background: 'var(--background)', padding: '0.85rem 1rem', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
-                                        {discAmount > 0 ? (
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                                                    <span>Subtotal ({cart.reduce((sum, i) => sum + i.quantity, 0)} items):</span>
-                                                    <span style={{ fontWeight: 600 }}>৳ {subtotal.toFixed(2)}</span>
-                                                </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                                <span>Subtotal ({cart.reduce((sum, i) => sum + i.quantity, 0)} items):</span>
+                                                <span style={{ fontWeight: 600 }}>৳ {subtotal.toFixed(2)}</span>
+                                            </div>
+                                            {discAmount > 0 && (
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#ef4444' }}>
                                                     <span>Discount {overallDiscount.type === '%' && typeof overallDiscount.value === 'number' && overallDiscount.value > 0 ? `(${overallDiscount.value}%)` : ''}:</span>
                                                     <span style={{ fontWeight: 600 }}>- ৳ {discAmount.toFixed(2)}</span>
                                                 </div>
-                                                <div style={{ borderTop: '1px dashed var(--border)', paddingTop: '0.35rem', marginTop: '0.15rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>Total Payable:</span>
-                                                    <span style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--primary)' }}>৳ {grandTotal.toFixed(2)}</span>
+                                            )}
+                                            {taxSetting.enabled && Number(taxSetting.rate) > 0 && (
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: taxSetting.type === 'Inclusive' ? 'var(--text-muted)' : 'var(--primary)' }}>
+                                                    <span>{taxSetting.name || 'VAT'} ({taxSetting.rate}% {taxSetting.type}):</span>
+                                                    <span style={{ fontWeight: 600 }}>{taxSetting.type === 'Inclusive' ? `(Incl. ৳${taxAmount.toFixed(2)})` : `+ ৳${taxAmount.toFixed(2)}`}</span>
                                                 </div>
+                                            )}
+                                            <div style={{ borderTop: '1px dashed var(--border)', paddingTop: '0.35rem', marginTop: '0.15rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>Total Payable:</span>
+                                                <span style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--primary)' }}>৳ {grandTotal.toFixed(2)}</span>
                                             </div>
-                                        ) : (
-                                            <div style={{ textAlign: 'center' }}>
-                                                <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.2rem' }}>Total Payable ({cart.reduce((sum, i) => sum + i.quantity, 0)} items)</div>
-                                                <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--primary)' }}>৳ {grandTotal.toFixed(2)}</div>
-                                            </div>
-                                        )}
+                                        </div>
                                     </div>
 
                                     {hasPermission('can_give_discount') && (
