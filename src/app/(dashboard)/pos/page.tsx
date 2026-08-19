@@ -1678,125 +1678,130 @@ export default function POSPage() {
             {/* RECEIPT MODAL */}
             {receiptData && (
                 <div className={styles.modalOverlay} style={{ backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', backgroundColor: 'rgba(15, 23, 42, 0.55)', zIndex: 2000 }}>
-                    <div className={styles.modalContent} style={{ maxWidth: 400 }}>
-                        <div className={styles.modalHeader} style={{ marginBottom: '0' }}>
-                            <h2 style={{ color: '#10b981' }}>Sale Successful!</h2>
-                            <button className={styles.closeBtn} onClick={() => setReceiptData(null)}><X size={24} /></button>
+                    <div className={styles.modalContent} style={{ maxWidth: 420, maxHeight: '90vh', display: 'flex', flexDirection: 'column', padding: '1.25rem' }}>
+                        {/* Header (Pinned) */}
+                        <div className={styles.modalHeader} style={{ marginBottom: '0.75rem', flexShrink: 0 }}>
+                            <h2 style={{ color: '#10b981', margin: 0, fontSize: '1.2rem' }}>Sale Successful!</h2>
+                            <button className={styles.closeBtn} onClick={() => setReceiptData(null)}><X size={22} /></button>
                         </div>
 
-                        <div id="receipt-print-area" style={{
-                            background: '#fff',
-                            padding: '20px 18px',
-                            borderRadius: '8px',
-                            color: '#000',
-                            margin: '20px auto',
-                            border: '1px solid #ccc',
-                            fontSize: receiptData.paperSize === '58mm Thermal' ? '11px' : '12px',
-                            fontFamily: 'monospace',
-                            maxWidth: receiptData.paperSize === '58mm Thermal' ? '260px' : '360px',
-                            width: '100%'
-                        }}>
-                            {receiptData.showLogo && receiptData.storeLogo && (
-                                <div style={{ textAlign: 'center', marginBottom: '8px' }}>
-                                    <img src={receiptData.storeLogo} style={{ maxHeight: '50px', maxWidth: '120px', objectFit: 'contain' }} alt="Logo" />
+                        {/* Thermal Paper Scroll Area */}
+                        <div style={{ flex: 1, overflowY: 'auto', paddingRight: '4px', margin: '0.25rem 0' }}>
+                            <div id="receipt-print-area" style={{
+                                background: '#fff',
+                                padding: '18px 16px',
+                                borderRadius: '8px',
+                                color: '#000',
+                                margin: '0 auto',
+                                border: '1px solid #ccc',
+                                fontSize: receiptData.paperSize === '58mm Thermal' ? '11px' : '12px',
+                                fontFamily: 'monospace',
+                                maxWidth: receiptData.paperSize === '58mm Thermal' ? '260px' : '340px',
+                                width: '100%'
+                            }}>
+                                {receiptData.showLogo && receiptData.storeLogo && (
+                                    <div style={{ textAlign: 'center', marginBottom: '8px' }}>
+                                        <img src={receiptData.storeLogo} style={{ maxHeight: '48px', maxWidth: '110px', objectFit: 'contain' }} alt="Logo" />
+                                    </div>
+                                )}
+                                <h2 style={{ textAlign: 'center', margin: '0 0 4px 0', fontSize: receiptData.paperSize === '58mm Thermal' ? '14px' : '16px' }}>{receiptData.storeName}</h2>
+                                {receiptData.storePhone && <div style={{ textAlign: 'center', marginBottom: '2px' }}>Phone: {receiptData.storePhone}</div>}
+                                {receiptData.storeAddress && <div style={{ textAlign: 'center', marginBottom: '10px' }}>{receiptData.storeAddress}</div>}
+
+                                <div style={{ borderBottom: '1px dashed #000', paddingBottom: '8px', marginBottom: '8px' }}>
+                                    <div>Invoice: <strong>{receiptData.invoiceNo}</strong></div>
+                                    <div>Date: {receiptData.date}</div>
+                                    {receiptData.showCustomer && <div>Customer: {receiptData.customerName}</div>}
+                                    {receiptData.showCashier && <div>Cashier: {receiptData.cashierName}</div>}
                                 </div>
-                            )}
-                            <h2 style={{ textAlign: 'center', margin: '0 0 5px 0', fontSize: receiptData.paperSize === '58mm Thermal' ? '14px' : '16px' }}>{receiptData.storeName}</h2>
-                            {receiptData.storePhone && <div style={{ textAlign: 'center', marginBottom: '2px' }}>Phone: {receiptData.storePhone}</div>}
-                            {receiptData.storeAddress && <div style={{ textAlign: 'center', marginBottom: '10px' }}>{receiptData.storeAddress}</div>}
 
-                            <div style={{ borderBottom: '1px dashed #000', paddingBottom: '10px', marginBottom: '10px' }}>
-                                <div>Invoice: <strong>{receiptData.invoiceNo}</strong></div>
-                                <div>Date: {receiptData.date}</div>
-                                {receiptData.showCustomer && <div>Customer: {receiptData.customerName}</div>}
-                                {receiptData.showCashier && <div>Cashier: {receiptData.cashierName}</div>}
-                            </div>
-
-                            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', marginBottom: '10px' }}>
-                                <thead>
-                                    <tr style={{ borderBottom: '1px dashed #000' }}>
-                                        <th style={{ padding: '5px 0' }}>Item</th>
-                                        <th style={{ padding: '5px 0', textAlign: 'center' }}>Qty</th>
-                                        <th style={{ padding: '5px 0', textAlign: 'right' }}>Total</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {receiptData.items.map((it: any, i: number) => (
-                                        <tr key={i} style={{ borderBottom: '1px dashed #eee' }}>
-                                            <td style={{ padding: '5px 0' }}>
-                                                {it.name} {it.variant_info ? `(${it.variant_info})` : ''}
-                                                {it.discount > 0 && <div style={{ fontSize: '10px' }}>(-৳{it.discount})</div>}
-                                            </td>
-                                            <td style={{ padding: '5px 0', textAlign: 'center' }}>{it.quantity}</td>
-                                            <td style={{ padding: '5px 0', textAlign: 'right' }}>৳{((it.unit_price - it.discount) * it.quantity).toFixed(2)}</td>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', marginBottom: '8px' }}>
+                                    <thead>
+                                        <tr style={{ borderBottom: '1px dashed #000' }}>
+                                            <th style={{ padding: '4px 0' }}>Item</th>
+                                            <th style={{ padding: '4px 0', textAlign: 'center' }}>Qty</th>
+                                            <th style={{ padding: '4px 0', textAlign: 'right' }}>Total</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody>
+                                        {receiptData.items.map((it: any, i: number) => (
+                                            <tr key={i} style={{ borderBottom: '1px dashed #eee' }}>
+                                                <td style={{ padding: '4px 0' }}>
+                                                    {it.name} {it.variant_info ? `(${it.variant_info})` : ''}
+                                                    {it.discount > 0 && <div style={{ fontSize: '10px' }}>(-৳{it.discount})</div>}
+                                                </td>
+                                                <td style={{ padding: '4px 0', textAlign: 'center' }}>{it.quantity}</td>
+                                                <td style={{ padding: '4px 0', textAlign: 'right' }}>৳{((it.unit_price - it.discount) * it.quantity).toFixed(2)}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
 
-                            <div style={{ borderTop: '1px dashed #000', paddingTop: '10px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                    <span>Subtotal:</span>
-                                    <span>৳ {receiptData.subtotal.toFixed(2)}</span>
-                                </div>
-                                {receiptData.discAmount > 0 && (
+                                <div style={{ borderTop: '1px dashed #000', paddingTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                        <span>Discount:</span>
-                                        <span>- ৳ {receiptData.discAmount.toFixed(2)}</span>
+                                        <span>Subtotal:</span>
+                                        <span>৳ {receiptData.subtotal.toFixed(2)}</span>
+                                    </div>
+                                    {receiptData.discAmount > 0 && (
+                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                            <span>Discount:</span>
+                                            <span>- ৳ {receiptData.discAmount.toFixed(2)}</span>
+                                        </div>
+                                    )}
+                                    {receiptData.taxEnabled && (
+                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                            <span>{receiptData.taxName || 'VAT'} ({receiptData.taxRate}% {receiptData.taxType}):</span>
+                                            <span>{receiptData.taxType === 'Inclusive' ? `(Incl. ৳${receiptData.taxAmount.toFixed(2)})` : `+ ৳${receiptData.taxAmount.toFixed(2)}`}</span>
+                                        </div>
+                                    )}
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '13px', marginTop: '4px', paddingTop: '4px', borderTop: '1px solid #000' }}>
+                                        <span>Grand Total:</span>
+                                        <span>৳ {receiptData.grandTotal.toFixed(2)}</span>
+                                    </div>
+
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px' }}>
+                                        <span>Paid ({receiptData.paymentMethod}):</span>
+                                        <span>৳ {receiptData.paid.toFixed(2)}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <span>Due:</span>
+                                        <span>৳ {receiptData.due.toFixed(2)}</span>
+                                    </div>
+                                    {receiptData.change > 0 && (
+                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                            <span>Change:</span>
+                                            <span>৳ {receiptData.change.toFixed(2)}</span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {receiptData.showQR && receiptData.qrDataUrl && (
+                                    <div style={{ textAlign: 'center', marginTop: '12px', paddingTop: '8px', borderTop: '1px dashed #ccc' }}>
+                                        <img src={receiptData.qrDataUrl} style={{ width: '85px', height: '85px', margin: '0 auto 2px auto', display: 'block' }} alt="Invoice QR" />
+                                        <div style={{ fontSize: '10px', color: '#555' }}>Scan for Digital Invoice</div>
                                     </div>
                                 )}
-                                {receiptData.taxEnabled && (
-                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                        <span>{receiptData.taxName || 'VAT'} ({receiptData.taxRate}% {receiptData.taxType}):</span>
-                                        <span>{receiptData.taxType === 'Inclusive' ? `(Incl. ৳${receiptData.taxAmount.toFixed(2)})` : `+ ৳${receiptData.taxAmount.toFixed(2)}`}</span>
-                                    </div>
-                                )}
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '14px', marginTop: '5px', paddingTop: '5px', borderTop: '1px solid #000' }}>
-                                    <span>Grand Total:</span>
-                                    <span>৳ {receiptData.grandTotal.toFixed(2)}</span>
-                                </div>
 
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px' }}>
-                                    <span>Paid ({receiptData.paymentMethod}):</span>
-                                    <span>৳ {receiptData.paid.toFixed(2)}</span>
-                                </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                    <span>Due:</span>
-                                    <span>৳ {receiptData.due.toFixed(2)}</span>
-                                </div>
-                                {receiptData.change > 0 && (
-                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                        <span>Change:</span>
-                                        <span>৳ {receiptData.change.toFixed(2)}</span>
+                                {receiptData.footer && (
+                                    <div style={{ textAlign: 'center', marginTop: '12px', fontStyle: 'italic', fontSize: '11px', whiteSpace: 'pre-line', borderTop: '1px dashed #e2e8f0', paddingTop: '6px' }}>
+                                        {receiptData.footer}
                                     </div>
                                 )}
                             </div>
-
-                            {receiptData.showQR && receiptData.qrDataUrl && (
-                                <div style={{ textAlign: 'center', marginTop: '15px', paddingTop: '10px', borderTop: '1px dashed #ccc' }}>
-                                    <img src={receiptData.qrDataUrl} style={{ width: '90px', height: '90px', margin: '0 auto 4px auto', display: 'block' }} alt="Invoice QR" />
-                                    <div style={{ fontSize: '10px', color: '#555' }}>Scan for Digital Invoice</div>
-                                </div>
-                            )}
-
-                            {receiptData.footer && (
-                                <div style={{ textAlign: 'center', marginTop: '15px', fontStyle: 'italic', fontSize: '11px', whiteSpace: 'pre-line', borderTop: '1px dashed #e2e8f0', paddingTop: '8px' }}>
-                                    {receiptData.footer}
-                                </div>
-                            )}
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginTop: '1rem' }}>
-                            <button onClick={printReceipt} style={{ padding: '0.75rem', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: 'var(--radius)', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', cursor: 'pointer' }}>
-                                <Printer size={18} /> Print
+                        {/* Action Buttons (Pinned at Bottom) */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', flexShrink: 0, paddingTop: '0.75rem', borderTop: '1px solid var(--border)' }}>
+                            <button onClick={printReceipt} style={{ padding: '0.7rem', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: 'var(--radius)', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', cursor: 'pointer' }}>
+                                <Printer size={17} /> Print
                             </button>
-                            <button onClick={downloadReceipt} style={{ padding: '0.75rem', background: '#2563eb', color: 'white', border: 'none', borderRadius: 'var(--radius)', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', cursor: 'pointer' }}>
-                                <Download size={18} /> Download
+                            <button onClick={downloadReceipt} style={{ padding: '0.7rem', background: '#2563eb', color: 'white', border: 'none', borderRadius: 'var(--radius)', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', cursor: 'pointer' }}>
+                                <Download size={17} /> Download
                             </button>
-                            <button onClick={shareReceipt} style={{ padding: '0.75rem', background: '#7c3aed', color: 'white', border: 'none', borderRadius: 'var(--radius)', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', cursor: 'pointer' }}>
-                                <Share2 size={18} /> Share
+                            <button onClick={shareReceipt} style={{ padding: '0.7rem', background: '#7c3aed', color: 'white', border: 'none', borderRadius: 'var(--radius)', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', cursor: 'pointer' }}>
+                                <Share2 size={17} /> Share
                             </button>
-                            <button onClick={() => setReceiptData(null)} style={{ padding: '0.75rem', background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', fontWeight: 600, cursor: 'pointer' }}>
+                            <button onClick={() => setReceiptData(null)} style={{ padding: '0.7rem', background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', fontWeight: 600, cursor: 'pointer' }}>
                                 Close / New Sale
                             </button>
                         </div>
