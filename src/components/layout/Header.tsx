@@ -324,10 +324,17 @@ export default function Header() {
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                                 <div className={styles.mobileStoreBadge}>🏬</div>
                                 <div>
-                                    <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-main)' }}>{storeName}</div>
-                                    <div style={{ fontSize: '0.75rem', color: 'var(--primary)', fontWeight: 600 }}>QRPOS Navigation</div>
+                                    <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-main)', lineHeight: 1.2 }}>{storeName}</div>
+                                    <div style={{ fontSize: '0.72rem', color: 'var(--primary)', fontWeight: 600 }}>QRPOS Navigation</div>
                                 </div>
                             </div>
+                            <button 
+                                className={styles.mobileCloseBtn}
+                                onClick={() => setIsMobileMenuOpen(false)}
+                                title="Close Menu"
+                            >
+                                <X size={22} color="var(--primary)" />
+                            </button>
                         </div>
 
                         <nav className={styles.mobileDrawerNav}>
