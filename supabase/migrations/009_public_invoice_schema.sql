@@ -11,6 +11,7 @@ DECLARE
     v_customer RECORD;
     v_staff RECORD;
     v_receipt_setting JSONB;
+    v_biz_setting JSONB;
     v_items JSONB;
     v_payments JSONB;
     v_result JSONB;
@@ -35,10 +36,14 @@ BEGIN
         SELECT name INTO v_staff FROM staff WHERE id = v_sale.staff_id;
     END IF;
 
-    -- 5. Fetch Store Receipt Settings
+    -- 5. Fetch Store Receipt & Business Settings
     SELECT setting_value INTO v_receipt_setting
     FROM store_settings
     WHERE store_id = v_sale.store_id AND setting_key = 'receipt';
+
+    SELECT setting_value INTO v_biz_setting
+    FROM store_settings
+    WHERE store_id = v_sale.store_id AND setting_key = 'business_info';
 
     -- 6. Fetch Sale Items (Exclude purchase/cost prices)
     SELECT jsonb_agg(
@@ -81,10 +86,10 @@ BEGIN
         'payment_status', v_sale.payment_status,
         'notes', v_sale.notes,
         'store', jsonb_build_object(
-            'name', COALESCE(v_store.name, 'QRPOS Store'),
-            'address', COALESCE(v_store.address, ''),
-            'phone', COALESCE(v_store.phone, ''),
-            'logo_url', v_store.logo_url
+            'name', COALESCE(v_biz_setting->>'name', v_store.name, 'QRPOS Store'),
+            'address', COALESCE(v_biz_setting->>'address', v_store.address, ''),
+            'phone', COALESCE(v_biz_setting->>'phone', v_store.phone, ''),
+            'logo_url', COALESCE(v_biz_setting->>'logo', v_store.logo_url)
         ),
         'customer', CASE WHEN v_customer.name IS NOT NULL THEN jsonb_build_object('name', v_customer.name, 'phone', v_customer.phone) ELSE NULL END,
         'cashier_name', COALESCE(v_staff.name, 'Staff'),

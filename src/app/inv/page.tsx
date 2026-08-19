@@ -64,6 +64,9 @@ function InvoiceContent() {
                     const { data: custData } = sData.customer_id ? await supabase.from('customers').select('*').eq('id', sData.customer_id).single() : { data: null };
                     const { data: staffData } = sData.staff_id ? await supabase.from('staff').select('*').eq('id', sData.staff_id).single() : { data: null };
                     const { data: settData } = await supabase.from('store_settings').select('*').eq('store_id', sData.store_id).eq('setting_key', 'receipt').single();
+                    const { data: bizSettData } = await supabase.from('store_settings').select('*').eq('store_id', sData.store_id).eq('setting_key', 'business_info').single();
+
+                    const bizVal = bizSettData?.setting_value || {};
 
                     setInvoice({
                         success: true,
@@ -79,10 +82,10 @@ function InvoiceContent() {
                         payment_status: sData.payment_status,
                         notes: sData.notes,
                         store: {
-                            name: storeData?.name || 'QRPOS Store',
-                            address: storeData?.address || '',
-                            phone: storeData?.phone || '',
-                            logo_url: storeData?.logo_url || null
+                            name: bizVal.name || storeData?.name || 'QRPOS Store',
+                            address: bizVal.address || storeData?.address || '',
+                            phone: bizVal.phone || storeData?.phone || '',
+                            logo_url: bizVal.logo || storeData?.logo_url || null
                         },
                         customer: custData ? { name: custData.name, phone: custData.phone } : null,
                         cashier_name: staffData?.name || 'Staff',
