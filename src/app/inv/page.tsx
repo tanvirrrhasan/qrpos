@@ -4,8 +4,9 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
 import { localDB } from '@/lib/db/local';
-import { Printer, Download, AlertCircle } from 'lucide-react';
+import { Printer, Download, AlertCircle, Loader2 } from 'lucide-react';
 import QRCode from 'qrcode';
+import html2canvas from 'html2canvas';
 import styles from './inv.module.css';
 
 function InvoiceContent() {
@@ -14,6 +15,7 @@ function InvoiceContent() {
     const [loading, setLoading] = useState(true);
     const [invoice, setInvoice] = useState<any>(null);
     const [qrDataUrl, setQrDataUrl] = useState<string>('');
+    const [isDownloading, setIsDownloading] = useState(false);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
     useEffect(() => {
@@ -161,8 +163,32 @@ function InvoiceContent() {
         window.print();
     };
 
-    const handleDownload = () => {
-        window.print();
+    const handleDownload = async () => {
+        const el = document.getElementById('printableReceipt');
+        if (!el) return;
+
+        setIsDownloading(true);
+        try {
+            const canvas = await html2canvas(el, {
+                scale: 3,
+                useCORS: true,
+                allowTaint: true,
+                backgroundColor: '#ffffff'
+            });
+
+            const dataUrl = canvas.toDataURL('image/png');
+            const link = document.createElement('a');
+            link.download = `Receipt-${invoice?.invoice_no || 'invoice'}.png`;
+            link.href = dataUrl;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } catch (err) {
+            console.error('Download error:', err);
+            window.print();
+        } finally {
+            setIsDownloading(false);
+        }
     };
 
     if (loading) {
@@ -300,8 +326,9 @@ function InvoiceContent() {
                     <button className={styles.actionBtn} onClick={handlePrint}>
                         <Printer size={18} /> Print
                     </button>
-                    <button className={styles.actionBtn} onClick={handleDownload}>
-                        <Download size={18} /> Download
+                    <button className={styles.actionBtn} onClick={handleDownload} disabled={isDownloading}>
+                        {isDownloading ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : <Download size={18} />}
+                        {isDownloading ? 'Saving...' : 'Download'}
                     </button>
                 </div>
             </div>
