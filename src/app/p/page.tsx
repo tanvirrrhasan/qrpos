@@ -16,14 +16,63 @@ function PublicProductContent() {
     useEffect(() => {
         async function fetchPublicProduct() {
             if (!sku) return;
+            const cleanSku = sku.trim();
             try {
-                // Call the secure RPC function that bypasses RLS safely
-                const { data, error: rpcError } = await supabase.rpc('get_public_product_by_sku', { p_sku: sku });
+                // 1. Call the secure RPC function that bypasses RLS safely on Supabase Cloud
+                const { data, error: rpcError } = await supabase.rpc('get_public_product_by_sku', { p_sku: cleanSku });
                 
-                if (rpcError) throw rpcError;
-                if (!data) throw new Error('Product not found or inactive');
+                if (!rpcError && data) {
+                    setProductData(data);
+                    return;
+                }
 
-                setProductData(data);
+                // 2. Fallback to Local DB (IndexedDB) if browsing locally or synced locally
+                try {
+                    const { localDB } = await import('@/lib/db/local');
+                    const localProd = await localDB.products.where('sku').equalsIgnoreCase(cleanSku).first();
+                    if (localProd) {
+                        const storeSettings = await localDB.settings.toArray();
+                        const bizInfo = storeSettings.find(s => s.setting_key === 'business_info')?.setting_value || {};
+                        setProductData({
+                            id: localProd.id,
+                            name: localProd.name,
+                            sku: localProd.sku,
+                            description: localProd.description,
+                            selling_price: localProd.selling_price,
+                            thumbnail_url: localProd.image_url || null,
+                            has_variants: localProd.has_variants,
+                            store_name: bizInfo.name || 'QRPOS Store',
+                            store_phone: bizInfo.phone || '',
+                            store_address: bizInfo.address || ''
+                        });
+                        return;
+                    }
+
+                    // Check variant in localDB
+                    const localVar = await localDB.productVariants.where('sku').equalsIgnoreCase(cleanSku).first();
+                    if (localVar) {
+                        const parent = await localDB.products.get(localVar.product_id);
+                        const storeSettings = await localDB.settings.toArray();
+                        const bizInfo = storeSettings.find(s => s.setting_key === 'business_info')?.setting_value || {};
+                        setProductData({
+                            id: localVar.id,
+                            name: parent ? `${parent.name} (${localVar.variant_value})` : localVar.variant_value,
+                            sku: localVar.sku,
+                            description: parent?.description,
+                            selling_price: localVar.selling_price,
+                            thumbnail_url: parent?.image_url || null,
+                            has_variants: false,
+                            store_name: bizInfo.name || 'QRPOS Store',
+                            store_phone: bizInfo.phone || '',
+                            store_address: bizInfo.address || ''
+                        });
+                        return;
+                    }
+                } catch (e) {
+                    console.log('Local fallback error', e);
+                }
+
+                throw new Error('Product not found or waiting for Cloud Sync');
             } catch (err: any) {
                 console.error(err);
                 setError(err.message || 'Failed to load product');
