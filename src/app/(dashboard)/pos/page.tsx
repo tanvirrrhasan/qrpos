@@ -105,7 +105,7 @@ export default function POSPage() {
 
     const bizSetting = useMemo(() => {
         const s = settings.find(x => x.setting_key === 'business_info');
-        return s?.setting_value || { name: 'QRPOS Store', address: '', phone: '', logo: '' };
+        return s?.setting_value || { name: '', address: '', phone: '', logo: '' };
     }, [settings]);
 
     const availablePaymentMethods = useMemo(() => {
@@ -703,7 +703,7 @@ export default function POSPage() {
             }
 
             setReceiptData({
-                storeName: bizSetting.name || 'QRPOS Store',
+                storeName: bizSetting.name || '',
                 storePhone: bizSetting.phone || '',
                 storeAddress: bizSetting.address || '',
                 storeLogo: bizSetting.logo || null,

@@ -41,7 +41,7 @@ function PublicProductContent() {
                             selling_price: localProd.selling_price,
                             thumbnail_url: localProd.image_url || null,
                             has_variants: localProd.has_variants,
-                            store_name: bizInfo.name || 'QRPOS Store',
+                            store_name: bizInfo.name || '',
                             store_phone: bizInfo.phone || '',
                             store_address: bizInfo.address || ''
                         });
@@ -62,7 +62,7 @@ function PublicProductContent() {
                             selling_price: localVar.selling_price,
                             thumbnail_url: parent?.image_url || null,
                             has_variants: false,
-                            store_name: bizInfo.name || 'QRPOS Store',
+                            store_name: bizInfo.name || '',
                             store_phone: bizInfo.phone || '',
                             store_address: bizInfo.address || ''
                         });

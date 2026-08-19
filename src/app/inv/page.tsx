@@ -82,7 +82,7 @@ function InvoiceContent() {
                         payment_status: sData.payment_status,
                         notes: sData.notes,
                         store: {
-                            name: bizVal.name || storeData?.name || 'QRPOS Store',
+                            name: bizVal.name || storeData?.name || '',
                             address: bizVal.address || storeData?.address || '',
                             phone: bizVal.phone || storeData?.phone || '',
                             logo_url: bizVal.logo || storeData?.logo_url || null
@@ -125,7 +125,7 @@ function InvoiceContent() {
                         payment_status: localSale.payment_status,
                         notes: localSale.notes,
                         store: {
-                            name: bizSetting?.setting_value?.name || 'QRPOS Store',
+                            name: bizSetting?.setting_value?.name || '',
                             address: bizSetting?.setting_value?.address || '',
                             phone: bizSetting?.setting_value?.phone || '',
                             logo_url: bizSetting?.setting_value?.logo || null
@@ -211,7 +211,7 @@ function InvoiceContent() {
                         {showLogo && store?.logo_url && (
                             <img src={store.logo_url} className={styles.storeLogo} alt="Logo" />
                         )}
-                        <h2 className={styles.storeName}>{store?.name || 'TEM'}</h2>
+                        <h2 className={styles.storeName}>{store?.name || ''}</h2>
                         {store?.phone && <div className={styles.storeMeta}>Phone: {store.phone}</div>}
                         {store?.address && <div className={styles.storeMeta}>{store.address}</div>}
                     </div>

@@ -628,7 +628,7 @@ export default function SettingsPage() {
                                             )}
                                         </div>
                                     )}
-                                    <div style={{ fontWeight: 'bold', fontSize: receipt.size === '58mm Thermal' ? '14px' : '16px' }}>{bizInfo.name || 'QRPOS Super Shop'}</div>
+                                    <div style={{ fontWeight: 'bold', fontSize: receipt.size === '58mm Thermal' ? '14px' : '16px' }}>{bizInfo.name || 'Store Name'}</div>
                                     <div style={{ fontSize: '11px', color: '#333333' }}>Phone: {bizInfo.phone || '01700-000000'}</div>
                                     <div style={{ fontSize: '11px', color: '#333333' }}>{bizInfo.address || 'Dhaka, Bangladesh'}</div>
                                 </div>

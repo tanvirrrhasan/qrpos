@@ -29,9 +29,8 @@ export default function Header() {
     const customers = useLiveQuery(() => localDB.customers.toArray(), []) || [];
     const sales = useLiveQuery(() => localDB.sales.toArray(), []) || [];
 
-    // Get store name from business_info setting
     const bizSetting = settings.find(s => s.setting_key === 'business_info');
-    const storeName = bizSetting?.setting_value?.name || 'QRPOS Store';
+    const storeName = bizSetting?.setting_value?.name || 'My Store';
 
     // Filter low stock items considering variant stocks
     const lowStockItems = products.filter(p => p.is_active).map(p => {
