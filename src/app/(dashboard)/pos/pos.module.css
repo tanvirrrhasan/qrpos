@@ -365,7 +365,9 @@
 .modalOverlay {
     position: fixed;
     top:0; left:0; right:0; bottom:0;
-    background: rgba(0,0,0,0.5);
+    background: rgba(15, 23, 42, 0.45) !important;
+    backdrop-filter: blur(12px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(12px) saturate(180%) !important;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -374,11 +376,25 @@
 .modalContent {
     background: var(--surface);
     border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    box-shadow: 0 20px 30px -10px rgba(0, 0, 0, 0.6), 0 10px 15px -5px rgba(0, 0, 0, 0.4);
     padding: 1.5rem;
     width: 90%;
     max-width: 500px;
-    max-height: 90vh;
+    max-height: 85vh;
     overflow-y: auto;
+    animation: popupScale 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes popupScale {
+    from {
+        opacity: 0;
+        transform: scale(0.92);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
 }
 .modalHeader {
     display: flex;
@@ -551,7 +567,188 @@
     height: 100% !important;
 }
 
+/* Hide third-party library buggy SVG highlight overlays */
+.scannerBody :global(svg.scan-region-highlight-svg),
+.scannerBody :global(svg.code-outline-highlight-svg),
+:global(svg.scan-region-highlight-svg),
+:global(svg.code-outline-highlight-svg) {
+    display: none !important;
+}
+
+/* Custom Scanner Viewfinder Overlay */
+.scannerOverlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    z-index: 5;
+}
+
+.scanRegion {
+    position: relative;
+    width: 130px;
+    height: 130px;
+    max-width: 60%;
+    max-height: 75%;
+    box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.45);
+    border-radius: 12px;
+}
+
+.scanCorner {
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    border-color: #3b82f6;
+    border-style: solid;
+}
+
+.cornerTL {
+    top: 0;
+    left: 0;
+    border-top-width: 3px;
+    border-left-width: 3px;
+    border-top-left-radius: 8px;
+}
+
+.cornerTR {
+    top: 0;
+    right: 0;
+    border-top-width: 3px;
+    border-right-width: 3px;
+    border-top-right-radius: 8px;
+}
+
+.cornerBL {
+    bottom: 0;
+    left: 0;
+    border-bottom-width: 3px;
+    border-left-width: 3px;
+    border-bottom-left-radius: 8px;
+}
+
+.cornerBR {
+    bottom: 0;
+    right: 0;
+    border-bottom-width: 3px;
+    border-right-width: 3px;
+    border-bottom-right-radius: 8px;
+}
+
+.scanLaser {
+    position: absolute;
+    left: 4px;
+    right: 4px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #3b82f6, #60a5fa, #3b82f6, transparent);
+    box-shadow: 0 0 8px #3b82f6, 0 0 12px #60a5fa;
+    border-radius: 2px;
+    animation: scanLaserAnim 2s infinite ease-in-out;
+}
+
+@keyframes scanLaserAnim {
+    0% {
+        top: 6px;
+        opacity: 0.8;
+    }
+    50% {
+        top: calc(100% - 8px);
+        opacity: 1;
+    }
+    100% {
+        top: 6px;
+        opacity: 0.8;
+    }
+}
+
 @media (max-width: 768px) {
+    .hideScannerOnMobile, .desktopOnlyCategoryList, .desktopOnlyProductGrid {
+        display: none !important;
+    }
+
+    .mobileSearchResultWrapper, .mobileCatalogWrapper {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+        width: 100%;
+    }
+    
+    .mobileSwapHeader {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-weight: 600;
+        font-size: 0.85rem;
+        padding-bottom: 0.25rem;
+        border-bottom: 1px solid var(--border);
+    }
+    
+    .clearSearchBtn {
+        background: none;
+        border: none;
+        color: var(--primary);
+        font-size: 0.8rem;
+        cursor: pointer;
+        font-weight: 600;
+    }
+
+    .mobileSearchList {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+        max-height: 240px;
+        overflow-y: auto;
+        padding-right: 0.25rem;
+    }
+
+    .mobileSearchItem {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 0.5rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface);
+        cursor: pointer;
+    }
+
+    .mobileItemThumb {
+        width: 36px;
+        height: 36px;
+        border-radius: var(--radius);
+        background: var(--background);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        flex-shrink: 0;
+    }
+
+    .mobileAddBtn {
+        padding: 0.25rem 0.6rem;
+        background: var(--primary);
+        color: white;
+        border: none;
+        border-radius: var(--radius);
+        font-weight: 600;
+        font-size: 0.75rem;
+        cursor: pointer;
+        flex-shrink: 0;
+    }
+
+    .mobileGridBody {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(95px, 1fr));
+        gap: 0.4rem;
+        max-height: 240px;
+        overflow-y: auto;
+        padding-top: 0.4rem;
+    }
+
     .container {
         flex-direction: column;
         padding: 0;
@@ -570,15 +767,15 @@
     }
 
     .leftPane {
-        flex: none; /* Let it shrink to its contents */
-        height: auto; /* Don't force 100% height */
-        max-height: 55%; /* Prevent it from pushing Cart off screen when grid is open */
+        flex: none;
+        height: auto;
+        max-height: 60%;
         padding: 0.25rem;
         background: transparent;
     }
 
     .rightPane {
-        flex: 1; /* Take all remaining space */
+        flex: 1;
         height: 100%;
         margin-top: 0;
         padding: 0.25rem 0.25rem 0 0.25rem;
@@ -706,11 +903,27 @@
     }
     
     .modalContent {
+        width: 92%;
+        max-width: 440px !important;
+        height: auto;
+        max-height: 85vh;
+        border-radius: var(--radius-lg);
+        padding: 1.25rem;
+        box-shadow: 0 20px 30px -10px rgba(0, 0, 0, 0.7);
+    }
+
+    .checkoutModalContent {
         width: 100%;
         max-width: none !important;
         height: 100dvh;
         max-height: 100dvh;
         border-radius: 0;
         padding: 1rem;
+    }
+}
+
+@media (min-width: 769px) {
+    .mobileSearchResultWrapper, .mobileCatalogWrapper {
+        display: none !important;
     }
 }

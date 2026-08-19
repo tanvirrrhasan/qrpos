@@ -46,9 +46,15 @@ export default function StaffPage() {
 
     // Data fetching
     const staffMembers = useLiveQuery(() => localDB.staff.toArray()) || [];
-    const activities = useLiveQuery(() => 
-        showActivityLog ? localDB.activityLog.where('staff_id').equals(showActivityLog).reverse().toArray() : []
-    , [showActivityLog]) || [];
+    const activities = useLiveQuery(async () => {
+        if (!showActivityLog) return [];
+        const targetStaff = staffMembers.find(s => s.id === showActivityLog);
+        const allLogs = await localDB.activityLog.toArray();
+        return allLogs.filter(act => {
+            if (!targetStaff) return true;
+            return act.staff_id === targetStaff.id || act.staff_id === targetStaff.auth_user_id || !act.staff_id;
+        }).sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+    }, [showActivityLog, staffMembers]) || [];
 
     // Form Handlers
     const handleRoleChange = (role: 'owner' | 'admin' | 'manager' | 'cashier') => {
@@ -367,22 +373,48 @@ export default function StaffPage() {
                                 <p style={{color: 'var(--text-muted)', textAlign: 'center', padding: '2rem 0'}}>No recent activity found for this staff member.</p>
                             ) : (
                                 <div style={{display: 'flex', flexDirection: 'column', gap: '1rem'}}>
-                                    {activities.map(act => (
-                                        <div key={act.id} style={{padding: '1rem', border: '1px solid var(--border)', borderRadius: '8px', background: 'var(--background)'}}>
-                                            <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem'}}>
-                                                <strong style={{textTransform: 'capitalize'}}>{act.action.replace('_', ' ')}</strong>
-                                                <span style={{fontSize: '0.85rem', color: 'var(--text-muted)'}}>{new Date(act.created_at).toLocaleString()}</span>
+                                    {activities.map(act => {
+                                        const actionTitle = (() => {
+                                            switch (act.action) {
+                                                case 'user_login': return '🔑 লগইন (Logged In)';
+                                                case 'user_logout': return '🚪 লগআউট (Logged Out)';
+                                                case 'sale_created': return '🛒 নতুন বিক্রি (New Sale Completed)';
+                                                case 'due_payment_received': return '💰 বাকি আদায় (Received Due Payment)';
+                                                case 'stock_adjusted': return '📦 স্টক পরিবর্তন (Stock Adjusted)';
+                                                case 'product_created': return '✨ পণ্য যোগ (Product Added)';
+                                                case 'product_updated': return '✏️ পণ্য ও দাম পরিবর্তন (Product/Price Edited)';
+                                                case 'product_deleted': return '🗑️ পণ্য নিষ্ক্রিয়/ডিলেট (Product Deleted)';
+                                                case 'customer_created': return '👤 নতুন কাস্টমার যোগ (Customer Created)';
+                                                case 'customer_updated': return '✏️ কাস্টমার তথ্য আপডেট (Customer Updated)';
+                                                case 'customer_deleted': return '❌ কাস্টমার ডিলেট (Customer Deleted)';
+                                                case 'expense_created': return '💸 খরচ যোগ (Expense Created)';
+                                                case 'expense_updated': return '✏️ খরচ আপডেট (Expense Updated)';
+                                                case 'purchase_created': return '🚚 মালামাল ক্রয় (Purchase Order Created)';
+                                                case 'supplier_payment': return '🏦 সাপ্লায়ার বিল পরিশোধ (Supplier Paid)';
+                                                case 'settings_updated': return '⚙️ সেটিংস পরিবর্তন (Settings Updated)';
+                                                case 'staff_created': return '👔 নতুন স্টাফ যোগ (Staff Account Created)';
+                                                case 'staff_updated': return '🔒 স্টাফ পারমিশন আপডেট (Staff Rights Updated)';
+                                                default: return act.action.replace('_', ' ');
+                                            }
+                                        })();
+
+                                        return (
+                                            <div key={act.id} style={{padding: '1rem', border: '1px solid var(--border)', borderRadius: '8px', background: 'var(--background)'}}>
+                                                <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem'}}>
+                                                    <strong style={{fontSize: '0.95rem'}}>{actionTitle}</strong>
+                                                    <span style={{fontSize: '0.85rem', color: 'var(--text-muted)'}}>{new Date(act.created_at).toLocaleString()}</span>
+                                                </div>
+                                                <div style={{fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'capitalize'}}>
+                                                    বিষয়: {act.entity_type} {act.entity_id ? `(${act.entity_id.slice(0,8)})` : ''}
+                                                </div>
+                                                {act.details && (
+                                                    <pre style={{margin: '0.5rem 0 0 0', padding: '0.5rem', background: 'rgba(0,0,0,0.03)', borderRadius: '4px', fontSize: '0.8rem', overflowX: 'auto'}}>
+                                                        {JSON.stringify(act.details, null, 2)}
+                                                    </pre>
+                                                )}
                                             </div>
-                                            <div style={{fontSize: '0.9rem', color: 'var(--text-muted)'}}>
-                                                Entity: {act.entity_type} ({act.entity_id?.slice(0,8)})
-                                            </div>
-                                            {act.details && (
-                                                <pre style={{margin: '0.5rem 0 0 0', padding: '0.5rem', background: 'rgba(0,0,0,0.03)', borderRadius: '4px', fontSize: '0.8rem', overflowX: 'auto'}}>
-                                                    {JSON.stringify(act.details, null, 2)}
-                                                </pre>
-                                            )}
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>

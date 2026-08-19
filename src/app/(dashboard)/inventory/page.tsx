@@ -31,11 +31,22 @@ export default function InventoryPage() {
     const products = useLiveQuery(() => localDB.products.filter(p => p.is_active).toArray(), []) || [];
     const variants = useLiveQuery(() => localDB.productVariants.toArray(), []) || [];
     const categories = useLiveQuery(() => localDB.categories.toArray(), []) || [];
+    const staffMembers = useLiveQuery(() => localDB.staff.toArray(), []) || [];
     const stockHistory = useLiveQuery(() => {
         if (!historyModal.product) return [];
         let q = localDB.stock_history.where('product_id').equals(historyModal.product.id);
         return q.toArray();
     }, [historyModal]) || [];
+
+    const getStaffName = (staffId?: string) => {
+        if (staffId) {
+            const found = staffMembers.find(st => st.id === staffId || st.auth_user_id === staffId);
+            if (found) return `${found.name} (${found.role})`;
+        }
+        const ownerStaff = staffMembers.find(st => st.role === 'owner');
+        if (ownerStaff) return `${ownerStaff.name} (owner)`;
+        return 'Owner Admin';
+    };
 
     useEffect(() => {
         async function fetchAuth() {
@@ -137,10 +148,35 @@ export default function InventoryPage() {
             const histPayload = {
                 id: histId, store_id: storeId, product_id: product.id, variant_id: variant?.id || undefined,
                 action: 'adjustment', quantity_change: qtyChange, stock_before: currentStock, stock_after: newStock,
+                staff_id: userId || undefined,
                 notes: `${adjReason} - ${adjNotes}`, created_at: new Date().toISOString()
             };
             await supabase.from('stock_history').insert(histPayload);
             await localDB.stock_history.put(histPayload);
+
+            // Record System Audit Activity Log
+            const actPayload = {
+                id: uuidv4(),
+                store_id: storeId,
+                staff_id: userId || undefined,
+                action: 'stock_adjusted',
+                entity_type: 'product',
+                entity_id: product.id,
+                details: {
+                    product_name: product.name,
+                    variant: variant?.variant_value || null,
+                    type: adjType,
+                    change: qtyChange,
+                    stock_before: currentStock,
+                    stock_after: newStock,
+                    reason: adjReason
+                },
+                created_at: new Date().toISOString()
+            };
+            await localDB.activityLog.put(actPayload);
+            try {
+                await supabase.from('activity_logs').insert([actPayload]);
+            } catch (e) {}
 
             setAdjustModal({ isOpen: false, product: null, variant: null });
             
@@ -346,7 +382,7 @@ export default function InventoryPage() {
             {/* History Modal */}
             {historyModal.isOpen && historyModal.product && (
                 <div className={styles.modalOverlay}>
-                    <div className={styles.modalContent} style={{maxWidth: 700}}>
+                    <div className={styles.modalContent} style={{maxWidth: 860}}>
                         <div className={styles.modalHeader}>
                             <h2>Stock History — {historyModal.product.name} {historyModal.variant ? `- ${historyModal.variant.variant_value}` : ''}</h2>
                             <button className={styles.closeBtn} onClick={() => setHistoryModal({isOpen:false, product:null, variant:null})}><X size={24}/></button>
@@ -359,22 +395,24 @@ export default function InventoryPage() {
                                     <th>Action</th>
                                     <th>Qty</th>
                                     <th>Stock After</th>
+                                    <th style={{ whiteSpace: 'nowrap' }}>Adjusted By</th>
                                     <th>Ref / Notes</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {filteredHistory.length === 0 ? (
-                                    <tr><td colSpan={5} style={{textAlign:'center', padding: '2rem'}}>No history found.</td></tr>
+                                    <tr><td colSpan={6} style={{textAlign:'center', padding: '2rem'}}>No history found.</td></tr>
                                 ) : null}
                                 {filteredHistory.map(h => (
                                     <tr key={h.id}>
-                                        <td>{new Date(h.created_at).toLocaleString()}</td>
+                                        <td style={{ whiteSpace: 'nowrap' }}>{new Date(h.created_at).toLocaleString()}</td>
                                         <td style={{textTransform: 'capitalize'}}>{h.action.replace('_', ' ')}</td>
                                         <td style={{color: h.quantity_change > 0 ? '#10b981' : h.quantity_change < 0 ? '#ef4444' : 'inherit', fontWeight:500}}>
                                             {h.quantity_change > 0 ? '+' : ''}{h.quantity_change}
                                         </td>
                                         <td>{h.stock_after}</td>
-                                        <td style={{fontSize: '0.75rem', color: 'var(--text-muted)'}}>{h.notes || '-'}</td>
+                                        <td style={{ whiteSpace: 'nowrap' }}><b style={{ color: 'var(--primary)' }}>👤 {getStaffName((h as any).staff_id)}</b></td>
+                                        <td style={{fontSize: '0.8rem', color: 'var(--text-muted)'}}>{h.notes || '-'}</td>
                                     </tr>
                                 ))}
                             </tbody>

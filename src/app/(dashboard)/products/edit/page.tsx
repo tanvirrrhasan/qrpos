@@ -168,10 +168,28 @@ function EditProductContent() {
             if (pErr) throw pErr;
             await localDB.products.update(id, productPayload as any);
 
-            // Log activity
-            await supabase.from('activity_log').insert({
-                store_id: storeId, staff_id: staffId, action: 'edit_product', entity_type: 'products', entity_id: id, details: { changed_fields: Object.keys(productPayload) }
-            });
+            // System Audit Activity Log
+            const actPayload = {
+                id: uuidv4(),
+                store_id: storeId,
+                staff_id: staffId || undefined,
+                action: 'product_updated',
+                entity_type: 'product',
+                entity_id: id,
+                details: {
+                    name: form.name,
+                    old_selling_price: product?.selling_price,
+                    new_selling_price: form.selling_price,
+                    old_purchase_price: product?.purchase_price,
+                    new_purchase_price: form.purchase_price,
+                    has_variants: hasVariants
+                },
+                created_at: new Date().toISOString()
+            };
+            await localDB.activityLog.put(actPayload);
+            try {
+                await supabase.from('activity_logs').insert([actPayload]);
+            } catch (e) {}
 
             // 2. Save Variants (Simple diff strategy: delete all old variants and insert new ones, though not ideal for stock. Better to upsert.)
             if (hasVariants) {

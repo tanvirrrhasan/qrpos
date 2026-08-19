@@ -9,6 +9,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { localDB } from '@/lib/db/local';
 import { supabase } from '@/lib/supabase/client';
 import { useAuth } from '@/lib/contexts/AuthContext';
+import { v4 as uuidv4 } from 'uuid';
 
 export default function ProductsPage() {
   const router = useRouter();
@@ -98,9 +99,27 @@ export default function ProductsPage() {
   const handleDelete = async (id: string) => {
     if(!confirm("এই পণ্যটি নিষ্ক্রিয় করা হবে। পুরানো বিক্রির record গুলোতে এটি দেখা যাবে। নিশ্চিত?")) return;
     try {
+        const prod = products.find(p => p.id === id);
         const { error } = await supabase.from('products').update({ is_active: false, updated_at: new Date().toISOString() }).eq('id', id);
         if (error) throw error;
         await localDB.products.update(id, { is_active: false });
+
+        // System Audit Activity Log
+        const actPayload = {
+            id: uuidv4(),
+            store_id: prod?.store_id || 'default',
+            staff_id: undefined,
+            action: 'product_deleted',
+            entity_type: 'product',
+            entity_id: id,
+            details: { name: prod?.name, sku: prod?.sku },
+            created_at: new Date().toISOString()
+        };
+        await localDB.activityLog.put(actPayload);
+        try {
+            await supabase.from('activity_logs').insert([actPayload]);
+        } catch (e) {}
+
         // Deselect if selected
         if(selectedIds.has(id)) toggleSelect(id);
     } catch (err: any) {

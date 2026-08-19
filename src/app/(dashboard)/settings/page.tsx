@@ -85,7 +85,33 @@ export default function SettingsPage() {
             
             if (data) {
                 await localDB.settings.put(data);
+                if (key === 'qr_config' && typeof value === 'object') {
+                    for (const [subKey, subVal] of Object.entries(value)) {
+                        await localDB.settings.put({
+                            id: `qr_config.${subKey}`,
+                            setting_key: `qr_config.${subKey}`,
+                            setting_value: String(subVal),
+                            updated_at: new Date().toISOString()
+                        });
+                    }
+                }
             }
+
+            // System Audit Activity Log
+            const actPayload = {
+                id: uuidv4(),
+                store_id: storeId,
+                staff_id: undefined,
+                action: 'settings_updated',
+                entity_type: 'settings',
+                entity_id: key,
+                details: { setting_key: key },
+                created_at: new Date().toISOString()
+            };
+            await localDB.activityLog.put(actPayload);
+            try {
+                await supabase.from('activity_logs').insert([actPayload]);
+            } catch (e) {}
             
             alert('Settings saved successfully!');
         } catch (error: any) {
@@ -302,48 +328,36 @@ export default function SettingsPage() {
                 {activeTab === 'qr' && (
                     <div className={styles.card}>
                         <h2><QrCode size={20} /> 5. QR Code Configuration</h2>
+                        <p style={{color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1.5rem'}}>
+                            Set what internal data is encoded inside the 2D QR Code image when scanned with a phone or QR scanner.
+                        </p>
+
                         <div className={styles.formGroup}>
-                            <label>QR Scan Mode</label>
+                            <label>QR Code Internal Scan Data Mode</label>
                             <select value={qrConfig.mode} onChange={e => setQrConfig({...qrConfig, mode: e.target.value})}>
-                                <option value="Text Only">Text Only (SKU)</option>
-                                <option value="App Page">App Page Link</option>
-                                <option value="Custom URL">Custom URL</option>
+                                <option value="1">Mode 1: Text / SKU Only (e.g. QRPOS::SKU)</option>
+                                <option value="2">Mode 2: Direct Product Page URL (Public View)</option>
+                                <option value="3">Mode 3: Custom URL Pattern</option>
                             </select>
                         </div>
-                        <div className={styles.formGroup}>
-                            <label>Custom URL Pattern</label>
-                            <input type="text" placeholder="e.g. https://domain.com/p/{id}" value={qrConfig.urlPattern} onChange={e => setQrConfig({...qrConfig, urlPattern: e.target.value})} disabled={qrConfig.mode !== 'Custom URL'} />
-                        </div>
-                        <div className={styles.formGroup}>
-                            <label className={styles.toggleLabel}>
-                                <input type="checkbox" checked={qrConfig.showName} onChange={e => setQrConfig({...qrConfig, showName: e.target.checked})} /> QR Label: Show Product Name
-                            </label>
-                        </div>
-                        <div className={styles.formGroup}>
-                            <label className={styles.toggleLabel}>
-                                <input type="checkbox" checked={qrConfig.showPrice} onChange={e => setQrConfig({...qrConfig, showPrice: e.target.checked})} /> QR Label: Show Price
-                            </label>
-                        </div>
-                        <div className={styles.formGroup}>
-                            <label className={styles.toggleLabel}>
-                                <input type="checkbox" checked={qrConfig.showSku} onChange={e => setQrConfig({...qrConfig, showSku: e.target.checked})} /> QR Label: Show SKU
-                            </label>
-                        </div>
-                        <div className={styles.formGroup}>
-                            <label className={styles.toggleLabel}>
-                                <input type="checkbox" checked={qrConfig.showStore} onChange={e => setQrConfig({...qrConfig, showStore: e.target.checked})} /> QR Label: Show Store Name
-                            </label>
-                        </div>
-                        <div className={styles.formGroup}>
-                            <label>Default Label Size</label>
-                            <select value={qrConfig.size} onChange={e => setQrConfig({...qrConfig, size: e.target.value})}>
-                                <option value="Small">Small (Sticker)</option>
-                                <option value="Medium">Medium</option>
-                                <option value="Large">Large</option>
-                            </select>
-                        </div>
+
+                        {(qrConfig.mode === '3' || qrConfig.mode === 'Custom URL') && (
+                            <div className={styles.formGroup}>
+                                <label>Custom URL Pattern (For Mode 3)</label>
+                                <input 
+                                    type="text" 
+                                    placeholder="e.g. https://mydomain.com/p/{sku}" 
+                                    value={qrConfig.urlPattern || qrConfig.custom_url_pattern || ''} 
+                                    onChange={e => setQrConfig({...qrConfig, urlPattern: e.target.value, custom_url_pattern: e.target.value})} 
+                                />
+                                <span style={{fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.25rem', display: 'block'}}>
+                                    Use <code>&#123;sku&#125;</code> as placeholder for product SKU code. Example: <code>https://mywebsite.com/item/&#123;sku&#125;</code>
+                                </span>
+                            </div>
+                        )}
+
                         <button className={styles.saveButton} disabled={saving} onClick={() => handleSave('qr_config', qrConfig)}>
-                            <Save size={16} style={{display:'inline', marginRight: '5px', verticalAlign: 'text-bottom'}}/> Save
+                            <Save size={16} style={{display:'inline', marginRight: '5px', verticalAlign: 'text-bottom'}}/> Save Settings
                         </button>
                     </div>
                 )}

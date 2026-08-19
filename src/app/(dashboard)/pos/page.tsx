@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react';
-import { Search, Camera, CameraOff, Upload, X, Minus, Plus, Trash2, List, Image as ImageIcon, Tag, Printer, UserPlus, ChevronDown, ChevronUp, Package, ShoppingCart, Clock, Banknote, Smartphone, CreditCard, CheckCircle, Download, Share2 } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { Search, Camera, CameraOff, Upload, X, Minus, Plus, Trash2, List, Image as ImageIcon, Tag, Printer, UserPlus, ChevronDown, ChevronUp, Package, ShoppingCart, Clock, Banknote, Smartphone, CreditCard, Building2, CheckCircle, Download, Share2, Percent } from 'lucide-react';
 import styles from './pos.module.css';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { localDB } from '@/lib/db/local';
@@ -57,10 +57,10 @@ export default function POSPage() {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Checkout State
-    const [overallDiscount, setOverallDiscount] = useState<{ type: '%' | '৳', value: number }>({ type: '৳', value: 0 });
+    const [overallDiscount, setOverallDiscount] = useState<{ type: '%' | '৳', value: number | '' }>({ type: '৳', value: '' });
     const [selectedCustomer, setSelectedCustomer] = useState<string | null>(null);
     const [isDue, setIsDue] = useState(false);
-    const [paymentMethod, setPaymentMethod] = useState<'cash' | 'bkash' | 'nagad' | 'card'>('cash');
+    const [paymentMethod, setPaymentMethod] = useState<string>('cash');
     const [paidAmountInput, setPaidAmountInput] = useState<number | ''>('');
     const [refNo, setRefNo] = useState('');
     const [checkoutNotes, setCheckoutNotes] = useState('');
@@ -74,6 +74,9 @@ export default function POSPage() {
     // New Customer State
     const [newCustName, setNewCustName] = useState('');
     const [newCustPhone, setNewCustPhone] = useState('');
+    const [newCustEmail, setNewCustEmail] = useState('');
+    const [newCustAddress, setNewCustAddress] = useState('');
+    const [newCustNotes, setNewCustNotes] = useState('');
 
     // Fetch Data
     const products = useLiveQuery(() => localDB.products.filter(p => p.is_active).toArray(), []) || [];
@@ -82,6 +85,31 @@ export default function POSPage() {
     const customers = useLiveQuery(() => localDB.customers.toArray(), []) || [];
     const heldCarts = useLiveQuery(() => localDB.heldCarts.toArray(), []) || [];
     const settings = useLiveQuery(() => localDB.settings.toArray(), []) || [];
+
+    const paymentSettings = useMemo(() => {
+        const s = settings.find(x => x.setting_key === 'payments');
+        return s?.setting_value || { cash: true, bkash: true, nagad: true, rocket: false, bank: false, card: false };
+    }, [settings]);
+
+    const availablePaymentMethods = useMemo(() => {
+        const list = [];
+        if (paymentSettings.cash !== false) list.push({ id: 'cash', label: 'Cash', icon: Banknote, activeColor: 'var(--primary)' });
+        if (paymentSettings.bkash) list.push({ id: 'bkash', label: 'bKash', icon: Smartphone, activeColor: '#e11471' });
+        if (paymentSettings.nagad) list.push({ id: 'nagad', label: 'Nagad', icon: Smartphone, activeColor: '#f58220' });
+        if (paymentSettings.rocket) list.push({ id: 'rocket', label: 'Rocket', icon: Smartphone, activeColor: '#8c3494' });
+        if (paymentSettings.bank) list.push({ id: 'bank', label: 'Bank Transfer', icon: Building2, activeColor: '#0284c7' });
+        if (paymentSettings.card) list.push({ id: 'card', label: 'Card', icon: CreditCard, activeColor: '#4f46e5' });
+        return list.length > 0 ? list : [{ id: 'cash', label: 'Cash', icon: Banknote, activeColor: 'var(--primary)' }];
+    }, [paymentSettings]);
+
+    useEffect(() => {
+        if (availablePaymentMethods.length > 0) {
+            const isCurrentValid = availablePaymentMethods.some(m => m.id === paymentMethod);
+            if (!isCurrentValid) {
+                setPaymentMethod(availablePaymentMethods[0].id);
+            }
+        }
+    }, [availablePaymentMethods, paymentMethod]);
 
     const productsRef = useRef(products);
     useEffect(() => {
@@ -238,11 +266,14 @@ export default function POSPage() {
 
     // Calculation
     const subtotal = cart.reduce((sum, item) => sum + ((item.unit_price - item.discount) * item.quantity), 0);
-    const discAmount = overallDiscount.type === '৳' ? overallDiscount.value : (subtotal * overallDiscount.value / 100);
-    // Enforce overall max discount check
-    const grandTotal = Math.max(0, subtotal - discAmount);
+    const discNum = typeof overallDiscount.value === 'number' ? overallDiscount.value : 0;
+    const rawDiscAmount = overallDiscount.type === '৳' ? discNum : (subtotal * discNum / 100);
+    const discAmount = Math.round(rawDiscAmount);
+    // Enforce overall max discount check and round to whole integer Taka
+    const grandTotal = Math.round(Math.max(0, subtotal - discAmount));
 
-    const handleOverallDiscountChange = (type: '%' | '৳', val: number) => {
+    const handleOverallDiscountChange = (type: '%' | '৳', valInput: number | '') => {
+        const val = typeof valInput === 'number' ? valInput : 0;
         if (role !== 'owner') {
             const valPct = type === '%' ? val : (subtotal > 0 ? (val / subtotal) * 100 : 0);
             if (valPct > maxDiscountPct) {
@@ -250,19 +281,21 @@ export default function POSPage() {
                 return;
             }
         }
-        setOverallDiscount({ type, value: val });
+        setOverallDiscount({ type, value: valInput });
     };
 
     const actualPaid = isDue ? (Number(paidAmountInput) || 0) : grandTotal;
     const dueAmount = Math.max(0, grandTotal - actualPaid);
     const changeAmount = Math.max(0, actualPaid - grandTotal);
 
-    // Update paid amount when toggling isDue
+    // Update paid amount when toggling isDue or grandTotal changes
     useEffect(() => {
         if (!isDue) {
             setPaidAmountInput(grandTotal);
         } else {
-            setPaidAmountInput('');
+            if (typeof paidAmountInput === 'number' && paidAmountInput > grandTotal) {
+                setPaidAmountInput(grandTotal);
+            }
         }
     }, [isDue, grandTotal]);
 
@@ -301,13 +334,21 @@ export default function POSPage() {
 
     const handleQuickAddCustomer = async () => {
         if (!newCustName || !storeId) return showToast('Name is required', 'error');
+        const now = new Date().toISOString();
         const newCust = {
             id: uuidv4(),
             store_id: storeId,
             name: newCustName,
-            phone: newCustPhone,
+            phone: newCustPhone || null,
+            email: newCustEmail || null,
+            address: newCustAddress || null,
+            notes: newCustNotes || null,
             total_due: 0,
-            created_at: new Date().toISOString()
+            total_purchases: 0,
+            purchase_count: 0,
+            is_active: true,
+            created_at: now,
+            updated_at: now
         };
         await localDB.customers.put(newCust as any);
         try {
@@ -317,6 +358,10 @@ export default function POSPage() {
         setAddCustomerModal(false);
         setNewCustName('');
         setNewCustPhone('');
+        setNewCustEmail('');
+        setNewCustAddress('');
+        setNewCustNotes('');
+        showToast('Customer added successfully!', 'success');
     };
 
     const lastScannedRef = useRef<string | null>(null);
@@ -357,8 +402,8 @@ export default function POSPage() {
                     },
                     {
                         returnDetailedScanResult: true,
-                        highlightScanRegion: true,
-                        highlightCodeOutline: true,
+                        highlightScanRegion: false,
+                        highlightCodeOutline: false,
                         maxScansPerSecond: 15,
                     }
                 );
@@ -556,19 +601,60 @@ export default function POSPage() {
                 });
             }
 
-            if (dueAmount > 0 && selectedCustomer) {
+            if (selectedCustomer) {
                 const cust = await localDB.customers.get(selectedCustomer);
-                if (cust) await localDB.customers.update(cust.id, { total_due: cust.total_due + dueAmount });
+                if (cust) {
+                    const newDue = Math.max(0, (cust.total_due || 0) + dueAmount);
+                    const newPurchases = (cust.total_purchases || 0) + grandTotal;
+                    const newCount = (cust.purchase_count || 0) + 1;
+                    const now = new Date().toISOString();
+                    await localDB.customers.update(cust.id, {
+                        total_due: newDue,
+                        total_purchases: newPurchases,
+                        purchase_count: newCount,
+                        last_purchase_at: now,
+                        updated_at: now
+                    });
+                    try {
+                        await supabase.from('customers').update({
+                            total_due: newDue,
+                            total_purchases: newPurchases,
+                            purchase_count: newCount,
+                            last_purchase_at: now,
+                            updated_at: now
+                        }).eq('id', cust.id);
+                    } catch (e) {}
+                }
             }
 
             await localDB.sales.put(saleData as any);
             await localDB.saleItems.bulkPut(items as any);
             if (payments.length) await localDB.salePayments.bulkPut(payments as any);
 
+            // System Audit Activity Log
+            const actPayload = {
+                id: uuidv4(),
+                store_id: storeId,
+                staff_id: staffId || undefined,
+                action: 'sale_created',
+                entity_type: 'sale',
+                entity_id: saleId,
+                details: {
+                    invoice_no: invNo,
+                    total: grandTotal,
+                    paid: actualPaid,
+                    due: dueAmount,
+                    customer: selectedCustomer ? getCustomerName(selectedCustomer) : 'Walk-in'
+                },
+                created_at: new Date().toISOString()
+            };
+            await localDB.activityLog.put(actPayload);
+
             try {
                 await supabase.from('sales').insert(saleData);
                 await supabase.from('sale_items').insert(items);
                 if (payments.length) await supabase.from('sale_payments').insert(payments);
+                await supabase.from('activity_logs').insert([actPayload]);
                 await localDB.sales.update(saleId, { is_synced: true });
             } catch (e) { console.log('Will sync later', e); }
 
@@ -846,49 +932,127 @@ export default function POSPage() {
             {/* Left Pane: Products & Scanner */}
             <div className={styles.leftPane}>
 
-                {/* Permanent Scanner Area */}
+                {/* Permanent / Swappable Scanner Area */}
                 <div className={styles.scannerContainer}>
-                    <div className={styles.scannerHeader}>
-                        <h3><Camera size={18} style={{ marginRight: 6, verticalAlign: 'middle' }} /> QR Scanner</h3>
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                            <button
-                                onClick={() => setIsCameraActive(!isCameraActive)}
-                                className={styles.scannerActionBtn}
-                                style={{ background: isCameraActive ? '#fee2e2' : 'var(--primary)', color: isCameraActive ? '#ef4444' : '#fff' }}
-                            >
-                                {isCameraActive ? <><CameraOff size={16} /> Pause</> : <><Camera size={16} /> Start</>}
-                            </button>
-                            <button
-                                onClick={() => fileInputRef.current?.click()}
-                                className={styles.scannerActionBtn}
-                            >
-                                <Upload size={16} /> Upload
-                            </button>
-                            <input
-                                type="file"
-                                accept="image/*"
-                                ref={fileInputRef}
-                                style={{ display: 'none' }}
-                                onChange={handleFileUpload}
-                            />
+                    {/* Mobile Swapped View: Search Results */}
+                    {searchQ ? (
+                        <div className={styles.mobileSearchResultWrapper}>
+                            <div className={styles.mobileSwapHeader}>
+                                <span>🔍 Search Results ({filteredProducts.length})</span>
+                                <button className={styles.clearSearchBtn} onClick={() => setSearchQ('')}>Clear Search</button>
+                            </div>
+                            <div className={styles.mobileSearchList}>
+                                {filteredProducts.length === 0 ? (
+                                    <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                                        No products found for "{searchQ}"
+                                    </div>
+                                ) : (
+                                    filteredProducts.map(p => (
+                                        <div key={p.id} className={styles.mobileSearchItem} onClick={() => {
+                                            if (p.has_variants) setVariantModal(p);
+                                            else addToCart(p);
+                                        }}>
+                                            <div className={styles.mobileItemThumb}>
+                                                {p.thumbnail_url ? <img src={p.thumbnail_url} style={{ height: '100%', width: '100%', objectFit: 'cover' }} alt="" /> : <ImageIcon size={18} color="var(--text-muted)" />}
+                                            </div>
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ fontWeight: 600, fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
+                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                                    ৳{p.selling_price} {!p.has_variants && `• Stock: ${p.stock}`}
+                                                </div>
+                                            </div>
+                                            <button className={styles.mobileAddBtn}>+ Add</button>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
                         </div>
+                    ) : null}
+
+                    {/* Mobile Swapped View: Product Catalog Grid */}
+                    {showMobileProducts && !searchQ ? (
+                        <div className={styles.mobileCatalogWrapper}>
+                            <div className={styles.categoryList} style={{ paddingBottom: '0.4rem', borderBottom: '1px solid var(--border)' }}>
+                                <button className={`${styles.categoryBtn} ${activeCat === 'all' ? styles.active : ''}`} onClick={() => setActiveCat('all')}>All Items</button>
+                                {categories.map(c => (
+                                    <button key={c.id} className={`${styles.categoryBtn} ${activeCat === c.id ? styles.active : ''}`} onClick={() => setActiveCat(c.id)}>{c.name}</button>
+                                ))}
+                            </div>
+                            <div className={styles.mobileGridBody}>
+                                {filteredProducts.map(p => (
+                                    <div key={p.id} className={`${styles.productCard} ${p.stock <= 0 && !p.has_variants ? styles.outOfStock : ''}`} onClick={() => {
+                                        if (p.has_variants) setVariantModal(p);
+                                        else addToCart(p);
+                                    }}>
+                                        {!p.has_variants && (
+                                            <div className={`${styles.stockBadge} ${p.stock === 0 ? styles.stockOut : p.stock <= p.low_stock_alert ? styles.stockLow : styles.stockGood}`}>
+                                                {p.stock}
+                                            </div>
+                                        )}
+                                        <div style={{ height: 50, background: 'var(--background)', borderRadius: 'var(--radius)', marginBottom: '0.2rem', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                                            {p.thumbnail_url ? <img src={p.thumbnail_url} style={{ height: '100%', width: '100%', objectFit: 'cover' }} /> : <ImageIcon size={18} color="var(--text-muted)" />}
+                                        </div>
+                                        <div style={{ fontWeight: 600, fontSize: '0.75rem', lineHeight: 1.1 }}>{p.name}</div>
+                                        <div style={{ color: 'var(--primary)', fontWeight: 700, marginTop: 'auto', fontSize: '0.8rem' }}>৳ {p.selling_price}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    ) : null}
+
+                    {/* Standard Scanner View (Renders on Desktop always, on Mobile when not swapped) */}
+                    <div className={`${styles.desktopScannerBlock} ${(searchQ || showMobileProducts) ? styles.hideScannerOnMobile : ''}`}>
+                        <div className={styles.scannerHeader}>
+                            <h3><Camera size={18} style={{ marginRight: 6, verticalAlign: 'middle' }} /> QR Scanner</h3>
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                <button
+                                    onClick={() => setIsCameraActive(!isCameraActive)}
+                                    className={styles.scannerActionBtn}
+                                    style={{ background: isCameraActive ? '#fee2e2' : 'var(--primary)', color: isCameraActive ? '#ef4444' : '#fff' }}
+                                >
+                                    {isCameraActive ? <><CameraOff size={16} /> Pause</> : <><Camera size={16} /> Start</>}
+                                </button>
+                                <button
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className={styles.scannerActionBtn}
+                                >
+                                    <Upload size={16} /> Upload
+                                </button>
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    ref={fileInputRef}
+                                    style={{ display: 'none' }}
+                                    onChange={handleFileUpload}
+                                />
+                            </div>
+                        </div>
+                        {isCameraActive ? (
+                            <div className={styles.scannerBody}>
+                                <video
+                                    ref={videoRef}
+                                    autoPlay
+                                    playsInline
+                                    muted
+                                    style={{ width: '100%', borderRadius: 'var(--radius)', objectFit: 'cover' }}
+                                ></video>
+                                <div className={styles.scannerOverlay}>
+                                    <div className={styles.scanRegion}>
+                                        <div className={`${styles.scanCorner} ${styles.cornerTL}`} />
+                                        <div className={`${styles.scanCorner} ${styles.cornerTR}`} />
+                                        <div className={`${styles.scanCorner} ${styles.cornerBL}`} />
+                                        <div className={`${styles.scanCorner} ${styles.cornerBR}`} />
+                                        <div className={styles.scanLaser} />
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <div style={{ padding: '0.4rem 0.75rem', background: 'var(--background)', borderRadius: 'var(--radius)', fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <CameraOff size={16} />
+                                <span>Camera Paused. Click "Start" to scan QR.</span>
+                            </div>
+                        )}
                     </div>
-                    {isCameraActive ? (
-                        <div className={styles.scannerBody}>
-                            <video
-                                ref={videoRef}
-                                autoPlay
-                                playsInline
-                                muted
-                                style={{ width: '100%', borderRadius: 'var(--radius)', objectFit: 'cover' }}
-                            ></video>
-                        </div>
-                    ) : (
-                        <div style={{ padding: '0.4rem 0.75rem', background: 'var(--background)', borderRadius: 'var(--radius)', fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <CameraOff size={16} />
-                            <span>Camera Paused. Click "Start" to scan QR.</span>
-                        </div>
-                    )}
                 </div>
 
                 {/* Sticky Header: Search Bar & Category Filter */}
@@ -905,7 +1069,7 @@ export default function POSPage() {
                         </button>
                     </div>
 
-                    <div className={`${styles.categoryList} ${!showMobileProducts ? styles.hideOnMobile : ''}`}>
+                    <div className={`${styles.categoryList} ${styles.desktopOnlyCategoryList}`}>
                         <button className={`${styles.categoryBtn} ${activeCat === 'all' ? styles.active : ''}`} onClick={() => setActiveCat('all')}>All Items</button>
                         {categories.map(c => (
                             <button key={c.id} className={`${styles.categoryBtn} ${activeCat === c.id ? styles.active : ''}`} onClick={() => setActiveCat(c.id)}>{c.name}</button>
@@ -914,7 +1078,7 @@ export default function POSPage() {
                 </div>
 
                 {/* Product Grid */}
-                <div className={`${styles.productGrid} ${!showMobileProducts ? styles.hideOnMobile : ''}`}>
+                <div className={`${styles.productGrid} ${styles.desktopOnlyProductGrid}`}>
                         {filteredProducts.map(p => (
                             <div key={p.id} className={`${styles.productCard} ${p.stock <= 0 && !p.has_variants ? styles.outOfStock : ''}`} onClick={() => {
                                 if (p.has_variants) {
@@ -978,7 +1142,14 @@ export default function POSPage() {
 
                 <div className={styles.cartSummary}>
                     <div className={styles.summaryRow}>
-                        <span>Subtotal</span>
+                        <span>
+                            Subtotal 
+                            {totalCartItems > 0 && (
+                                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 'normal', marginLeft: '6px' }}>
+                                    ({totalCartItems} {totalCartItems === 1 ? 'item' : 'items'})
+                                </span>
+                            )}
+                        </span>
                         <span>৳ {subtotal.toFixed(2)}</span>
                     </div>
                 </div>
@@ -998,7 +1169,7 @@ export default function POSPage() {
 
             {/* VARIANT MODAL */}
             {variantModal && (
-                <div className={styles.modalOverlay}>
+                <div className={styles.modalOverlay} style={{ backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', backgroundColor: 'rgba(15, 23, 42, 0.55)', zIndex: 1200 }}>
                     <div className={styles.modalContent}>
                         <div className={styles.modalHeader}>
                             <h2>Select Variant: {variantModal.name}</h2>
@@ -1019,8 +1190,8 @@ export default function POSPage() {
 
             {/* CHECKOUT MODAL (Redesigned with explicit instructions) */}
             {checkoutModal && (
-                <div className={styles.modalOverlay}>
-                    <div className={styles.modalContent} style={{ maxWidth: 750, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: 0 }}>
+                <div className={styles.modalOverlay} style={{ backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', backgroundColor: 'rgba(15, 23, 42, 0.55)', zIndex: 1000 }}>
+                    <div className={`${styles.modalContent} ${styles.checkoutModalContent}`} style={{ maxWidth: 880, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: 0 }}>
                         <div className={styles.modalHeader} style={{ padding: '1rem 1rem 0 1rem', flexShrink: 0, marginBottom: '0.5rem' }}>
                             <h2>Complete Sale</h2>
                             <button className={styles.closeBtn} onClick={() => setCheckoutModal(false)}><X size={24} /></button>
@@ -1032,20 +1203,87 @@ export default function POSPage() {
                                 {/* Left Side: Summary & Discount */}
                                 <div className={styles.checkoutLeft}>
 
-                                    <div style={{ background: 'var(--background)', padding: '1rem', borderRadius: 'var(--radius)', textAlign: 'center' }}>
-                                        <div style={{ color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Total Payable</div>
-                                        <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--primary)' }}>৳ {grandTotal.toFixed(2)}</div>
+                                    <div style={{ background: 'var(--background)', padding: '0.85rem 1rem', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
+                                        {discAmount > 0 ? (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                                    <span>Subtotal ({cart.reduce((sum, i) => sum + i.quantity, 0)} items):</span>
+                                                    <span style={{ fontWeight: 600 }}>৳ {subtotal.toFixed(2)}</span>
+                                                </div>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#ef4444' }}>
+                                                    <span>Discount {overallDiscount.type === '%' && typeof overallDiscount.value === 'number' && overallDiscount.value > 0 ? `(${overallDiscount.value}%)` : ''}:</span>
+                                                    <span style={{ fontWeight: 600 }}>- ৳ {discAmount.toFixed(2)}</span>
+                                                </div>
+                                                <div style={{ borderTop: '1px dashed var(--border)', paddingTop: '0.35rem', marginTop: '0.15rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>Total Payable:</span>
+                                                    <span style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--primary)' }}>৳ {grandTotal.toFixed(2)}</span>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div style={{ textAlign: 'center' }}>
+                                                <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.2rem' }}>Total Payable ({cart.reduce((sum, i) => sum + i.quantity, 0)} items)</div>
+                                                <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--primary)' }}>৳ {grandTotal.toFixed(2)}</div>
+                                            </div>
+                                        )}
                                     </div>
 
                                     {hasPermission('can_give_discount') && (
                                         <div style={{ background: 'var(--background)', padding: '0.75rem', borderRadius: 'var(--radius)' }}>
-                                            <label style={{ fontWeight: 600, display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>Overall Discount</label>
-                                            <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                                <input type="number" style={{ flex: 1, padding: '0.5rem', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }} value={overallDiscount.value} onChange={e => handleOverallDiscountChange(overallDiscount.type, Number(e.target.value))} placeholder="Discount..." />
-                                                <select value={overallDiscount.type} onChange={e => handleOverallDiscountChange(e.target.value as any, overallDiscount.value)} style={{ padding: '0.5rem', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
-                                                    <option value="৳">৳</option>
-                                                    <option value="%">%</option>
-                                                </select>
+                                            <label style={{ fontWeight: 600, display: 'block', marginBottom: '0.35rem', fontSize: '0.9rem' }}>Overall Discount</label>
+                                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                                <input
+                                                    type="number"
+                                                    style={{ flex: 1, padding: '0.5rem 0.75rem', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'var(--surface)', fontSize: '0.95rem', color: 'var(--text)' }}
+                                                    value={overallDiscount.value}
+                                                    onChange={e => handleOverallDiscountChange(overallDiscount.type, e.target.value === '' ? '' : Number(e.target.value))}
+                                                    placeholder="0"
+                                                />
+                                                <div style={{ display: 'flex', background: 'var(--surface)', padding: '3px', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleOverallDiscountChange('৳', overallDiscount.value)}
+                                                        style={{
+                                                            width: '42px',
+                                                            height: '34px',
+                                                            borderRadius: 'calc(var(--radius) - 2px)',
+                                                            border: 'none',
+                                                            background: overallDiscount.type === '৳' ? 'var(--primary)' : 'transparent',
+                                                            color: overallDiscount.type === '৳' ? 'white' : 'var(--text-muted)',
+                                                            fontWeight: 800,
+                                                            fontSize: '1.1rem',
+                                                            cursor: 'pointer',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            transition: 'all 0.15s ease'
+                                                        }}
+                                                        title="Fixed Amount (৳)"
+                                                    >
+                                                        ৳
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleOverallDiscountChange('%', overallDiscount.value)}
+                                                        style={{
+                                                            width: '42px',
+                                                            height: '34px',
+                                                            borderRadius: 'calc(var(--radius) - 2px)',
+                                                            border: 'none',
+                                                            background: overallDiscount.type === '%' ? 'var(--primary)' : 'transparent',
+                                                            color: overallDiscount.type === '%' ? 'white' : 'var(--text-muted)',
+                                                            fontWeight: 800,
+                                                            fontSize: '1.1rem',
+                                                            cursor: 'pointer',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            transition: 'all 0.15s ease'
+                                                        }}
+                                                        title="Percentage (%)"
+                                                    >
+                                                        %
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
                                     )}
@@ -1059,63 +1297,141 @@ export default function POSPage() {
                                 {/* Right Side: Payments */}
                                 <div className={styles.checkoutRight}>
 
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem', background: isDue ? '#fee2e2' : 'var(--background)', padding: '0.75rem', borderRadius: 'var(--radius)' }}>
+                                    <div style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.6rem',
+                                        marginBottom: '0.75rem',
+                                        background: isDue ? 'rgba(59, 130, 246, 0.12)' : 'var(--background)',
+                                        border: isDue ? '1.5px solid var(--primary)' : '1px solid var(--border)',
+                                        padding: '0.75rem',
+                                        borderRadius: 'var(--radius)',
+                                        transition: 'all 0.2s ease'
+                                    }}>
                                         <input type="checkbox" id="dueSaleCheck" checked={isDue} onChange={e => {
-                                            setIsDue(e.target.checked);
-                                            // Auto-open Customer selection if none selected when Due is clicked
-                                            if (e.target.checked && !selectedCustomer) {
-                                                setShowCustDropdown(true);
-                                            }
-                                        }} style={{ width: '18px', height: '18px', cursor: 'pointer' }} />
-                                        <label htmlFor="dueSaleCheck" style={{ fontWeight: 700, fontSize: '1rem', cursor: 'pointer', color: isDue ? '#991b1b' : 'inherit' }}>Due / Partial Payment</label>
+                                             const checked = e.target.checked;
+                                             setIsDue(checked);
+                                             if (checked) {
+                                                 setPaidAmountInput(''); // Clear input for partial payment entry
+                                                 if (!selectedCustomer) {
+                                                     setShowCustDropdown(true);
+                                                 }
+                                             }
+                                        }} style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--primary)' }} />
+                                        <label htmlFor="dueSaleCheck" style={{ fontWeight: 700, fontSize: '1rem', cursor: 'pointer', color: isDue ? '#60a5fa' : 'var(--text)' }}>Due / Partial Payment</label>
                                     </div>
 
                                     {/* Custom Searchable Customer Dropdown */}
                                     <div style={{ marginBottom: '0.75rem' }}>
-                                        <label style={{ fontWeight: 600, display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>Customer {isDue && <span style={{ color: '#ef4444' }}>* (Required)</span>}</label>
+                                        <label style={{ fontWeight: 600, display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>
+                                            Customer {isDue && (
+                                                selectedCustomer ? (
+                                                    <span style={{ color: '#10b981', fontWeight: 600, marginLeft: '4px' }}>✓ Selected</span>
+                                                ) : (
+                                                    <span style={{ color: '#ef4444' }}>* (Required)</span>
+                                                )
+                                            )}
+                                        </label>
                                         <div style={{ display: 'flex', gap: '0.5rem' }}>
                                             <div ref={custDropdownRef} style={{ flex: 1, position: 'relative' }}>
                                                 <div
                                                     onClick={() => setShowCustDropdown(true)}
-                                                    style={{ padding: '0.5rem 0.75rem', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'var(--background)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+                                                    style={{
+                                                        padding: '0.5rem 0.75rem',
+                                                        borderRadius: 'var(--radius)',
+                                                        border: isDue && !selectedCustomer
+                                                            ? '1.5px solid #ef4444'
+                                                            : isDue && selectedCustomer
+                                                            ? '1.5px solid #10b981'
+                                                            : showCustDropdown
+                                                            ? '1.5px solid var(--primary)'
+                                                            : '1px solid var(--border)',
+                                                        background: isDue && !selectedCustomer
+                                                            ? 'rgba(239, 68, 68, 0.04)'
+                                                            : isDue && selectedCustomer
+                                                            ? 'rgba(16, 185, 129, 0.05)'
+                                                            : 'var(--background)',
+                                                        display: 'flex',
+                                                        justifyContent: 'space-between',
+                                                        alignItems: 'center',
+                                                        cursor: 'pointer',
+                                                        transition: 'all 0.2s'
+                                                    }}
                                                 >
-                                                    <span>{getCustomerName(selectedCustomer)}</span>
-                                                    <ChevronDown size={16} />
+                                                    <span style={{ fontWeight: selectedCustomer ? 600 : 400, color: isDue && selectedCustomer ? '#10b981' : 'inherit' }}>
+                                                        {getCustomerName(selectedCustomer)}
+                                                    </span>
+                                                    <ChevronDown size={16} color={isDue && !selectedCustomer ? '#ef4444' : isDue && selectedCustomer ? '#10b981' : 'var(--text-muted)'} />
                                                 </div>
 
                                                 {showCustDropdown && (
-                                                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', marginTop: '4px', zIndex: 100, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', maxHeight: '180px', display: 'flex', flexDirection: 'column' }}>
-                                                        <div style={{ padding: '0.4rem', borderBottom: '1px solid var(--border)' }}>
+                                                    <div style={{
+                                                        position: 'absolute',
+                                                        top: 'calc(100% + 4px)',
+                                                        left: 0,
+                                                        right: 0,
+                                                        background: 'var(--surface)',
+                                                        border: isDue ? '1.5px solid #3b82f6' : '1.5px solid var(--primary)',
+                                                        borderRadius: 'var(--radius)',
+                                                        zIndex: 100,
+                                                        boxShadow: isDue ? '0 10px 25px -5px rgba(59, 130, 246, 0.35)' : '0 10px 25px -5px rgba(0, 0, 0, 0.5)',
+                                                        maxHeight: '220px',
+                                                        display: 'flex',
+                                                        flexDirection: 'column',
+                                                        overflow: 'hidden'
+                                                    }}>
+                                                        <div style={{ padding: '0.5rem', borderBottom: '1px solid var(--border)', background: 'var(--background)' }}>
                                                             <div style={{ position: 'relative' }}>
-                                                                <Search size={14} style={{ position: 'absolute', left: '0.4rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                                                                <Search size={14} style={{ position: 'absolute', left: '0.5rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                                                                 <input
                                                                     type="text"
                                                                     autoFocus
-                                                                    placeholder="Search..."
+                                                                    placeholder="Search customer name or phone..."
                                                                     value={custSearch}
                                                                     onChange={e => setCustSearch(e.target.value)}
-                                                                    style={{ width: '100%', padding: '0.4rem 0.4rem 0.4rem 1.6rem', border: '1px solid var(--border)', borderRadius: 'var(--radius)', fontSize: '0.9rem' }}
+                                                                    style={{
+                                                                        width: '100%',
+                                                                        padding: '0.45rem 0.45rem 0.45rem 1.8rem',
+                                                                        border: '1px solid var(--border)',
+                                                                        borderRadius: 'var(--radius)',
+                                                                        fontSize: '0.85rem',
+                                                                        background: 'var(--surface)',
+                                                                        color: 'var(--text)'
+                                                                    }}
                                                                 />
                                                             </div>
                                                         </div>
-                                                        <div style={{ overflowY: 'auto', flex: 1 }}>
+                                                        <div style={{ overflowY: 'auto', flex: 1, background: 'var(--surface)' }}>
                                                             <div
-                                                                style={{ padding: '0.6rem', cursor: 'pointer', borderBottom: '1px solid var(--border)', background: selectedCustomer === null ? 'var(--background)' : 'transparent', fontSize: '0.9rem' }}
+                                                                style={{
+                                                                    padding: '0.6rem 0.75rem',
+                                                                    cursor: 'pointer',
+                                                                    borderBottom: '1px solid var(--border)',
+                                                                    background: selectedCustomer === null ? 'rgba(59, 130, 246, 0.12)' : 'transparent',
+                                                                    fontWeight: selectedCustomer === null ? 600 : 400,
+                                                                    fontSize: '0.875rem'
+                                                                }}
                                                                 onClick={() => { setSelectedCustomer(null); setShowCustDropdown(false); }}
                                                             >
                                                                 Walk-in Customer
                                                             </div>
                                                             {filteredCustomers.length === 0 ? (
-                                                                <div style={{ padding: '0.75rem', color: 'var(--text-muted)', textAlign: 'center' }}>No customers found</div>
+                                                                <div style={{ padding: '0.75rem', color: 'var(--text-muted)', textAlign: 'center', fontSize: '0.85rem' }}>No customers found</div>
                                                             ) : (
                                                                 filteredCustomers.map(c => (
                                                                     <div
                                                                         key={c.id}
-                                                                        style={{ padding: '0.75rem', cursor: 'pointer', borderBottom: '1px solid var(--border)', background: selectedCustomer === c.id ? 'var(--background)' : 'transparent' }}
+                                                                        style={{
+                                                                            padding: '0.6rem 0.75rem',
+                                                                            cursor: 'pointer',
+                                                                            borderBottom: '1px solid var(--border)',
+                                                                            background: selectedCustomer === c.id ? 'rgba(59, 130, 246, 0.18)' : 'transparent',
+                                                                            borderLeft: selectedCustomer === c.id ? '3px solid var(--primary)' : '3px solid transparent'
+                                                                        }}
                                                                         onClick={() => { setSelectedCustomer(c.id); setShowCustDropdown(false); }}
                                                                     >
-                                                                        <div style={{ fontWeight: 600 }}>{c.name}</div>
-                                                                        <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{c.phone}</div>
+                                                                        <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>{c.name}</div>
+                                                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{c.phone}</div>
                                                                     </div>
                                                                 ))
                                                             )}
@@ -1123,7 +1439,7 @@ export default function POSPage() {
                                                     </div>
                                                 )}
                                             </div>
-                                            <button onClick={() => setAddCustomerModal(true)} style={{ padding: '0.5rem', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', cursor: 'pointer' }} title="Add New Customer">
+                                            <button onClick={() => setAddCustomerModal(true)} style={{ padding: '0.5rem 0.65rem', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: 'var(--radius)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s ease' }} title="Add New Customer">
                                                 <UserPlus size={18} />
                                             </button>
                                         </div>
@@ -1131,20 +1447,52 @@ export default function POSPage() {
 
                                     <div style={{ marginBottom: '0.75rem' }}>
                                         <label style={{ fontWeight: 600, display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>Payment Method</label>
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
-                                            <button onClick={() => setPaymentMethod('cash')} style={{ padding: '0.5rem', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: paymentMethod === 'cash' ? 'var(--primary)' : 'var(--background)', color: paymentMethod === 'cash' ? 'white' : 'var(--text)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', fontWeight: 600, fontSize: '0.9rem' }}>
-                                                <Banknote size={16} /> Cash
-                                            </button>
-                                            <button onClick={() => setPaymentMethod('bkash')} style={{ padding: '0.5rem', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: paymentMethod === 'bkash' ? '#e11471' : 'var(--background)', color: paymentMethod === 'bkash' ? 'white' : 'var(--text)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', fontWeight: 600, fontSize: '0.9rem' }}>
-                                                <Smartphone size={16} /> bKash
-                                            </button>
-                                            <button onClick={() => setPaymentMethod('nagad')} style={{ padding: '0.5rem', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: paymentMethod === 'nagad' ? '#f58220' : 'var(--background)', color: paymentMethod === 'nagad' ? 'white' : 'var(--text)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', fontWeight: 600, fontSize: '0.9rem' }}>
-                                                <Smartphone size={16} /> Nagad
-                                            </button>
-                                            <button onClick={() => setPaymentMethod('card')} style={{ padding: '0.5rem', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: paymentMethod === 'card' ? '#4f46e5' : 'var(--background)', color: paymentMethod === 'card' ? 'white' : 'var(--text)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', fontWeight: 600, fontSize: '0.9rem' }}>
-                                                <CreditCard size={16} /> Card
-                                            </button>
-                                        </div>
+                                        {(() => {
+                                            const count = availablePaymentMethods.length;
+                                            let gridCols = 'repeat(3, 1fr)';
+                                            if (count === 1) gridCols = '1fr';
+                                            else if (count === 2 || count === 4) gridCols = 'repeat(2, 1fr)';
+                                            else if (count === 3 || count === 6) gridCols = 'repeat(3, 1fr)';
+                                            else if (count === 5) gridCols = 'repeat(6, 1fr)';
+
+                                            return (
+                                                <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: '0.4rem' }}>
+                                                    {availablePaymentMethods.map((m, idx) => {
+                                                        const IconComponent = m.icon;
+                                                        const isActive = paymentMethod === m.id;
+                                                        let itemSpan = undefined;
+                                                        if (count === 5) {
+                                                            itemSpan = idx < 3 ? 'span 2' : 'span 3';
+                                                        }
+                                                        return (
+                                                            <button
+                                                                key={m.id}
+                                                                onClick={() => setPaymentMethod(m.id)}
+                                                                style={{
+                                                                    gridColumn: itemSpan,
+                                                                    padding: '0.6rem 0.35rem',
+                                                                    borderRadius: 'var(--radius)',
+                                                                    border: '1px solid var(--border)',
+                                                                    background: isActive ? m.activeColor : 'var(--background)',
+                                                                    color: isActive ? 'white' : 'var(--text)',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    gap: '0.35rem',
+                                                                    fontWeight: 600,
+                                                                    fontSize: '0.85rem',
+                                                                    whiteSpace: 'nowrap',
+                                                                    cursor: 'pointer',
+                                                                    transition: 'all 0.15s ease'
+                                                                }}
+                                                            >
+                                                                <IconComponent size={15} style={{ flexShrink: 0 }} /> <span>{m.label}</span>
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            );
+                                        })()}
                                     </div>
 
                                     {isDue && (
@@ -1153,8 +1501,23 @@ export default function POSPage() {
                                             <div style={{ position: 'relative' }}>
                                                 <input
                                                     type="number"
+                                                    min="0"
+                                                    max={grandTotal}
                                                     value={paidAmountInput}
-                                                    onChange={e => setPaidAmountInput(e.target.value ? Number(e.target.value) : '')}
+                                                    onChange={e => {
+                                                        const raw = e.target.value;
+                                                        if (raw === '') {
+                                                            setPaidAmountInput('');
+                                                            return;
+                                                        }
+                                                        let val = Number(raw);
+                                                        if (val < 0) val = 0;
+                                                        if (val > grandTotal) {
+                                                            val = grandTotal;
+                                                            showToast(`Amount paid cannot exceed total payable (৳${grandTotal.toFixed(2)})`, 'error');
+                                                        }
+                                                        setPaidAmountInput(val);
+                                                    }}
                                                     style={{ width: '100%', padding: '0.5rem', paddingRight: '2.5rem', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'var(--background)', fontSize: '1.1rem', fontWeight: 'bold' }}
                                                     placeholder="0"
                                                 />
@@ -1177,14 +1540,14 @@ export default function POSPage() {
                                         </div>
                                     )}
 
-                                    <div style={{ background: 'var(--surface)', padding: '0.75rem 1rem', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem', fontSize: '1rem', fontWeight: 600 }}>
-                                            <span>Total Paid:</span>
+                                    <div style={{ background: 'var(--surface)', padding: '0.85rem 1rem', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.35rem', fontSize: '0.95rem', fontWeight: 600 }}>
+                                            <span style={{ color: 'var(--text-muted)' }}>Total Paid:</span>
                                             <span>৳ {actualPaid.toFixed(2)}</span>
                                         </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', color: dueAmount > 0 ? '#ef4444' : '#10b981', fontSize: '1rem', fontWeight: 600 }}>
-                                            <span>Due:</span>
-                                            <span>৳ {dueAmount.toFixed(2)}</span>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: dueAmount > 0 ? '#ef4444' : '#10b981', flexWrap: 'nowrap' }}>
+                                            <span style={{ fontSize: '1rem', fontWeight: 700, whiteSpace: 'nowrap' }}>Due Remaining:</span>
+                                            <span style={{ fontSize: '1.05rem', fontWeight: 700, whiteSpace: 'nowrap' }}>{dueAmount > 0 ? `৳ ${dueAmount.toFixed(2)}` : '৳ 0.00 (Paid in Full)'}</span>
                                         </div>
                                     </div>
 
@@ -1203,7 +1566,7 @@ export default function POSPage() {
 
             {/* QUICK ADD CUSTOMER MODAL */}
             {addCustomerModal && (
-                <div className={styles.modalOverlay} style={{ zIndex: 1500 }}>
+                <div className={styles.modalOverlay} style={{ backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', backgroundColor: 'rgba(15, 23, 42, 0.55)', zIndex: 1500 }}>
                     <div className={styles.modalContent} style={{ maxWidth: 400 }}>
                         <div className={styles.modalHeader}>
                             <h2>Add New Customer</h2>
@@ -1211,14 +1574,26 @@ export default function POSPage() {
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                             <div>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>Name *</label>
-                                <input type="text" value={newCustName} onChange={e => setNewCustName(e.target.value)} style={{ width: '100%', padding: '0.75rem', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'var(--background)' }} />
+                                <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 600, fontSize: '0.9rem' }}>Name *</label>
+                                <input type="text" placeholder="Customer Name" value={newCustName} onChange={e => setNewCustName(e.target.value)} style={{ width: '100%', padding: '0.65rem 0.75rem', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'var(--background)' }} />
                             </div>
                             <div>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>Phone</label>
-                                <input type="text" value={newCustPhone} onChange={e => setNewCustPhone(e.target.value)} style={{ width: '100%', padding: '0.75rem', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'var(--background)' }} />
+                                <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 600, fontSize: '0.9rem' }}>Phone</label>
+                                <input type="text" placeholder="017xxxxxxxx" value={newCustPhone} onChange={e => setNewCustPhone(e.target.value)} style={{ width: '100%', padding: '0.65rem 0.75rem', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'var(--background)' }} />
                             </div>
-                            <button onClick={handleQuickAddCustomer} style={{ padding: '1rem', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: 'var(--radius)', fontWeight: 600, cursor: 'pointer', marginTop: '1rem' }}>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 600, fontSize: '0.9rem' }}>Email (Optional)</label>
+                                <input type="email" placeholder="customer@example.com" value={newCustEmail} onChange={e => setNewCustEmail(e.target.value)} style={{ width: '100%', padding: '0.65rem 0.75rem', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'var(--background)' }} />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 600, fontSize: '0.9rem' }}>Address (Optional)</label>
+                                <input type="text" placeholder="House/Street/City" value={newCustAddress} onChange={e => setNewCustAddress(e.target.value)} style={{ width: '100%', padding: '0.65rem 0.75rem', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'var(--background)' }} />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 600, fontSize: '0.9rem' }}>Notes (Optional)</label>
+                                <input type="text" placeholder="VIP customer, discount preference, etc." value={newCustNotes} onChange={e => setNewCustNotes(e.target.value)} style={{ width: '100%', padding: '0.65rem 0.75rem', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'var(--background)' }} />
+                            </div>
+                            <button onClick={handleQuickAddCustomer} style={{ padding: '0.85rem', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: 'var(--radius)', fontWeight: 600, cursor: 'pointer', marginTop: '0.5rem' }}>
                                 Add Customer
                             </button>
                         </div>
@@ -1228,7 +1603,7 @@ export default function POSPage() {
 
             {/* RECEIPT MODAL */}
             {receiptData && (
-                <div className={styles.modalOverlay} style={{ zIndex: 2000 }}>
+                <div className={styles.modalOverlay} style={{ backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', backgroundColor: 'rgba(15, 23, 42, 0.55)', zIndex: 2000 }}>
                     <div className={styles.modalContent} style={{ maxWidth: 400 }}>
                         <div className={styles.modalHeader} style={{ marginBottom: '0' }}>
                             <h2 style={{ color: '#10b981' }}>Sale Successful!</h2>

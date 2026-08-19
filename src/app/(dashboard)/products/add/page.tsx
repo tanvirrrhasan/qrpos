@@ -142,6 +142,30 @@ export default function AddProductPage() {
             if (pErr) throw pErr;
             await localDB.products.put(productPayload as any);
 
+            // System Audit Activity Log
+            const actPayload = {
+                id: uuidv4(),
+                store_id: storeId,
+                staff_id: staffId || undefined,
+                action: 'product_created',
+                entity_type: 'product',
+                entity_id: productId,
+                details: {
+                    name: form.name,
+                    sku: finalSku,
+                    selling_price: form.selling_price,
+                    purchase_price: form.purchase_price,
+                    stock: form.stock,
+                    unit: form.unit,
+                    has_variants: hasVariants
+                },
+                created_at: new Date().toISOString()
+            };
+            await localDB.activityLog.put(actPayload);
+            try {
+                await supabase.from('activity_logs').insert([actPayload]);
+            } catch (e) {}
+
             // 2. Save Stock History (Opening stock)
             if (!hasVariants && form.stock > 0) {
                 const stockPayload = {

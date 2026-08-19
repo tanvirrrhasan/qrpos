@@ -141,8 +141,8 @@ export default function QRMenuPage() {
             </div>
 
             <div className={styles.grid}>
-                {printableItems.map(item => (
-                    <div key={item.id} className={styles.productCard} onClick={() => toggleSelect(item.id)}>
+                {printableItems.map((item, idx) => (
+                    <div key={`${item.id}-${idx}`} className={styles.productCard} onClick={() => toggleSelect(item.id)}>
                         <input type="checkbox" className={styles.checkbox} checked={selectedIds.has(item.id)} readOnly />
                         {qrUrls[item.id] ? (
                             <img src={qrUrls[item.id]} alt="QR" style={{width: 100, margin: '0 auto'}} />

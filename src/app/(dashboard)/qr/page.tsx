@@ -80,6 +80,7 @@ export default function QRManagementPage() {
                             </th>
                             <th style={{padding: '1rem'}}>Product Name</th>
                             <th style={{padding: '1rem'}}>SKU</th>
+                            <th style={{padding: '1rem'}}>Stock</th>
                             <th style={{padding: '1rem'}}>Price</th>
                         </tr>
                     </thead>
@@ -93,12 +94,24 @@ export default function QRManagementPage() {
                                 </td>
                                 <td style={{padding: '1rem', fontWeight: 600}}>{p.name}</td>
                                 <td style={{padding: '1rem', color: 'var(--text-muted)'}}>{p.sku}</td>
+                                <td style={{padding: '1rem'}}>
+                                    <span style={{
+                                        padding: '0.2rem 0.6rem', 
+                                        borderRadius: '12px', 
+                                        fontSize: '0.85rem', 
+                                        fontWeight: 600,
+                                        background: p.stock <= (p.low_stock_alert || 5) ? '#fef2f2' : '#f0fdf4',
+                                        color: p.stock <= (p.low_stock_alert || 5) ? '#ef4444' : '#16a34a'
+                                    }}>
+                                        {p.stock} {p.unit || 'pcs'}
+                                    </span>
+                                </td>
                                 <td style={{padding: '1rem'}}>৳ {p.selling_price}</td>
                             </tr>
                         ))}
                         {filteredProducts.length === 0 && (
                             <tr>
-                                <td colSpan={4} style={{padding: '2rem', textAlign: 'center', color: 'var(--text-muted)'}}>No products found</td>
+                                <td colSpan={5} style={{padding: '2rem', textAlign: 'center', color: 'var(--text-muted)'}}>No products found</td>
                             </tr>
                         )}
                     </tbody>

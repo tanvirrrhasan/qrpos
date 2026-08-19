@@ -39,6 +39,9 @@ const AuthContext = createContext<AuthContextType>({
 
 import { DEFAULT_PERMISSIONS, PermissionKey } from '@/lib/permissions'
 
+import { localDB } from '@/lib/db/local'
+import { v4 as uuidv4 } from 'uuid'
+
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const [user, setUser] = useState<User | null>(null)
     const [profile, setProfile] = useState<StaffProfile | null>(null)
@@ -94,10 +97,32 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 .eq('auth_user_id', userId)
                 .single()
 
-            if (error) {
-                console.error('Error fetching staff profile:', error)
-            } else if (mounted) {
-                setProfile(data as StaffProfile)
+            let staffData = data as StaffProfile;
+
+            if (error || !staffData) {
+                // Check localDB staff
+                const localStaff = await localDB.staff.where('auth_user_id').equals(userId).first();
+                if (localStaff) {
+                    staffData = localStaff as any;
+                }
+            }
+
+            if (staffData && mounted) {
+                setProfile(staffData);
+                // Log login activity into Dexie activityLog
+                const now = new Date().toISOString();
+                const actData = {
+                    id: uuidv4(),
+                    store_id: staffData.store_id || 'default',
+                    staff_id: staffData.id,
+                    action: 'user_login',
+                    entity_type: 'staff',
+                    entity_id: staffData.id,
+                    details: { name: staffData.name, role: staffData.role },
+                    created_at: now
+                };
+                await localDB.activityLog.put(actData);
+                await localDB.staff.update(staffData.id, { last_login_at: now });
             }
         } catch (error) {
             console.error('Unexpected error fetching profile:', error)
@@ -105,6 +130,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     const signOut = async () => {
+        try {
+            if (profile) {
+                const now = new Date().toISOString();
+                const actData = {
+                    id: uuidv4(),
+                    store_id: profile.store_id || 'default',
+                    staff_id: profile.id,
+                    action: 'user_logout',
+                    entity_type: 'staff',
+                    entity_id: profile.id,
+                    details: { name: profile.name, role: profile.role },
+                    created_at: now
+                };
+                await localDB.activityLog.put(actData);
+                try {
+                    await supabase.from('activity_logs').insert([actData]);
+                } catch (e) {}
+            }
+        } catch (e) {
+            console.error('Logout log error', e);
+        }
         await supabase.auth.signOut()
     }
 
