@@ -36,8 +36,22 @@ export async function syncInitialData() {
       await localDB.suppliers.bulkPut(suppliers as any[]);
     }
 
-    // 6. Fetch Sales (Recent 100 for offline view to save space)
-    const { data: sales, error: salesErr } = await supabase.from('sales').select('*').order('created_at', { ascending: false }).limit(100);
+    // 6. Fetch Sales (Role-based: Owner sees all, Cashier sees own)
+    const sessionInfo = await supabase.auth.getSession();
+    const user = sessionInfo.data.session?.user;
+    let currentStaff: any = null;
+
+    if (user) {
+      const { data: st } = await supabase.from('staff').select('*').eq('auth_user_id', user.id).single();
+      currentStaff = st;
+    }
+
+    let salesQuery = supabase.from('sales').select('*');
+    if (currentStaff && currentStaff.role === 'cashier') {
+      salesQuery = salesQuery.eq('staff_id', currentStaff.id);
+    }
+
+    const { data: sales, error: salesErr } = await salesQuery.order('created_at', { ascending: false }).limit(100);
     if (salesErr) console.error('Sales Error:', salesErr);
     if (sales && sales.length > 0) {
       await localDB.sales.bulkPut(sales as any[]);
@@ -48,6 +62,13 @@ export async function syncInitialData() {
       if (itemsErr) console.error('Sale Items Error:', itemsErr);
       if (saleItems && saleItems.length > 0) {
         await localDB.saleItems.bulkPut(saleItems as any[]);
+      }
+
+      // Fetch associated sale payments
+      const { data: salePayments, error: paymentsErr } = await supabase.from('sale_payments').select('*').in('sale_id', saleIds);
+      if (paymentsErr) console.error('Sale Payments Error:', paymentsErr);
+      if (salePayments && salePayments.length > 0) {
+        await localDB.salePayments.bulkPut(salePayments as any[]);
       }
     }
 

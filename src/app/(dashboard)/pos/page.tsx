@@ -706,12 +706,55 @@ export default function POSPage() {
             await localDB.activityLog.put(actPayload);
 
             try {
-                await supabase.from('sales').insert(saleData);
-                await supabase.from('sale_items').insert(items);
-                if (payments.length) await supabase.from('sale_payments').insert(payments);
+                const { error: sErr } = await supabase.from('sales').insert(saleData);
+                if (sErr) throw sErr;
+
+                const { error: iErr } = await supabase.from('sale_items').insert(items);
+                if (iErr) throw iErr;
+
+                if (payments.length) {
+                    const { error: pErr } = await supabase.from('sale_payments').insert(payments);
+                    if (pErr) throw pErr;
+                }
+
                 await supabase.from('activity_logs').insert([actPayload]);
                 await localDB.sales.update(saleId, { is_synced: true });
-            } catch (e) { console.log('Will sync later', e); }
+            } catch (e) {
+                console.warn('Will sync sale later via syncQueue:', e);
+                await localDB.syncQueue.add({
+                    table_name: 'sales',
+                    operation: 'create',
+                    record_id: saleId,
+                    data: saleData,
+                    status: 'pending',
+                    retry_count: 0,
+                    created_at: new Date().toISOString()
+                } as any);
+
+                for (const item of items) {
+                    await localDB.syncQueue.add({
+                        table_name: 'sale_items',
+                        operation: 'create',
+                        record_id: item.id,
+                        data: item,
+                        status: 'pending',
+                        retry_count: 0,
+                        created_at: new Date().toISOString()
+                    } as any);
+                }
+
+                for (const pay of payments) {
+                    await localDB.syncQueue.add({
+                        table_name: 'sale_payments',
+                        operation: 'create',
+                        record_id: pay.id,
+                        data: pay,
+                        status: 'pending',
+                        retry_count: 0,
+                        created_at: new Date().toISOString()
+                    } as any);
+                }
+            }
 
             // Create Receipt Data
             const custObj = selectedCustomer ? customers.find(c => c.id === selectedCustomer) : null;

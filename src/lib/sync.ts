@@ -124,6 +124,43 @@ export async function pullDataFromCloud(storeId: string) {
         const { data: sets } = await supabase.from('store_settings').select('*').eq('store_id', storeId);
         if (sets) await localDB.settings.bulkPut(sets);
 
+        // Fetch user and staff info for role-based sales sync
+        const sessionInfo = await supabase.auth.getSession();
+        const user = sessionInfo.data.session?.user;
+        let currentStaff: any = null;
+
+        if (user) {
+            const { data: st } = await supabase.from('staff').select('*').eq('auth_user_id', user.id).single();
+            currentStaff = st;
+        }
+
+        // Fetch sales according to permission (Owner sees all sales, Cashier sees own sales)
+        let salesQuery = supabase.from('sales').select('*').eq('store_id', storeId);
+
+        if (currentStaff && currentStaff.role === 'cashier') {
+            salesQuery = salesQuery.eq('staff_id', currentStaff.id);
+        }
+
+        const { data: sales } = await salesQuery.order('created_at', { ascending: false }).limit(200);
+
+        if (sales && sales.length > 0) {
+            await localDB.sales.bulkPut(sales as any[]);
+
+            const saleIds = sales.map(s => s.id);
+
+            // Fetch associated sale items
+            const { data: saleItems } = await supabase.from('sale_items').select('*').in('sale_id', saleIds);
+            if (saleItems && saleItems.length > 0) {
+                await localDB.saleItems.bulkPut(saleItems as any[]);
+            }
+
+            // Fetch associated sale payments
+            const { data: salePayments } = await supabase.from('sale_payments').select('*').in('sale_id', saleIds);
+            if (salePayments && salePayments.length > 0) {
+                await localDB.salePayments.bulkPut(salePayments as any[]);
+            }
+        }
+
     } catch (err) {
         console.error("Error pulling data from cloud:", err);
         throw err;
