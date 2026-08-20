@@ -42,10 +42,28 @@ import { DEFAULT_PERMISSIONS, PermissionKey } from '@/lib/permissions'
 import { localDB } from '@/lib/db/local'
 import { v4 as uuidv4 } from 'uuid'
 
+import { useRouter, usePathname } from 'next/navigation'
+
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const [user, setUser] = useState<User | null>(null)
     const [profile, setProfile] = useState<StaffProfile | null>(null)
     const [loading, setLoading] = useState(true)
+    const router = useRouter()
+    const pathname = usePathname()
+
+    // Client-side Route Guard for SPA / Static Export / Native APK
+    useEffect(() => {
+        if (loading) return;
+
+        const publicRoutes = ['/login', '/inv', '/p', '/qr-menu'];
+        const isPublicRoute = publicRoutes.some(route => pathname === route || pathname?.startsWith(route + '/'));
+
+        if (!user && !isPublicRoute) {
+            router.replace('/login');
+        } else if (user && pathname === '/login') {
+            router.replace('/');
+        }
+    }, [user, loading, pathname, router]);
 
     useEffect(() => {
         let mounted = true

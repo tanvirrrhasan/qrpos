@@ -10,6 +10,8 @@ import { syncInitialData } from '@/lib/db/sync';
 import { supabase } from '@/lib/supabase/client';
 import styles from './layout.module.css';
 
+import { useAuth } from '@/lib/contexts/AuthContext';
+
 interface AppShellProps {
     children: React.ReactNode;
 }
@@ -17,6 +19,7 @@ interface AppShellProps {
 export default function AppShell({ children }: AppShellProps) {
     const pathname = usePathname();
     const isPosPage = pathname === '/pos';
+    const { user, loading } = useAuth();
     const [debugInfo, setDebugInfo] = useState<any>({});
 
     useEffect(() => {
@@ -24,6 +27,7 @@ export default function AppShell({ children }: AppShellProps) {
             try {
                 const sessionInfo = await supabase.auth.getSession();
                 const user = sessionInfo.data.session?.user;
+                if (!user) return; // Don't run sync if not logged in
                 
                 const { error: linkErr } = await supabase.rpc('link_auth_user');
                 
@@ -44,6 +48,27 @@ export default function AppShell({ children }: AppShellProps) {
         }
         runSync();
     }, []);
+
+    const publicRoutes = ['/login', '/inv', '/p', '/qr-menu'];
+    const isPublicRoute = publicRoutes.some(route => pathname === route || pathname?.startsWith(route + '/'));
+
+    if (loading && !isPublicRoute) {
+        return (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'var(--background)' }}>
+                <div style={{ width: 36, height: 36, border: '3px solid var(--border)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                <style jsx>{`
+                    @keyframes spin {
+                        0% { transform: rotate(0deg); }
+                        100% { transform: rotate(360deg); }
+                    }
+                `}</style>
+            </div>
+        );
+    }
+
+    if (!user && !isPublicRoute) {
+        return null;
+    }
 
     return (
         <div className={styles.appShell}>
