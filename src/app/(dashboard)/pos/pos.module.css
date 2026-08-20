@@ -1,10 +1,10 @@
 .container {
     display: flex;
-    height: calc(100vh - 70px - 2.5rem);
-    max-height: calc(100vh - 70px - 2.5rem);
+    height: calc(100vh - 70px);
+    max-height: calc(100vh - 70px);
     gap: 1rem;
     overflow: hidden;
-    padding: 0;
+    padding: 0 !important;
     box-sizing: border-box;
 }
 
@@ -110,18 +110,28 @@
     flex-shrink: 0;
 }
 .categoryBtn {
-    padding: 0.4rem 0.85rem;
+    padding: 0.45rem 1rem;
     font-size: 0.85rem;
+    font-weight: 500;
     border: 1px solid var(--border);
-    border-radius: var(--radius-full);
-    background: var(--background);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--text-main);
     white-space: nowrap;
     cursor: pointer;
+    transition: all 0.15s ease;
+}
+.categoryBtn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+    background: rgba(59, 130, 246, 0.12);
 }
 .categoryBtn.active {
     background: var(--primary);
-    color: white;
+    color: #ffffff;
     border-color: var(--primary);
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
 }
 
 .productGrid {
@@ -136,20 +146,20 @@
 .productCard {
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    padding: 0.75rem;
+    padding: 0.5rem 0.5rem 0.3rem 0.5rem;
     cursor: pointer;
     text-align: center;
-    background: var(--background);
+    background: var(--surface);
     position: relative;
     transition: all 0.2s;
-    height: 145px;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
+    height: auto;
 }
 .productCard:hover {
     border-color: var(--primary);
     transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 .productCard.outOfStock {
     opacity: 0.5;
@@ -824,8 +834,8 @@
     }
 
     .productCard {
-        height: 120px;
-        padding: 0.4rem;
+        height: auto;
+        padding: 0.35rem 0.35rem 0.25rem 0.35rem;
     }
     .productGrid {
         grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));

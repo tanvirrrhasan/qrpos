@@ -266,17 +266,27 @@ export default function POSPage() {
     const updateItemDiscount = (id: string) => {
         const item = cart.find(c => c.id === id);
         if (!item) return;
-        const amtStr = prompt(`Enter discount amount for this item (৳) [Max allowed: ${maxDiscountPct}%]:`, '0');
-        if (amtStr === null) return;
-        const amt = Number(amtStr) || 0;
-
+        
+        const currentDiscount = item.discount || 0;
         const maxAmt = item.unit_price * (maxDiscountPct / 100);
-        if (amt > maxAmt && role !== 'owner') {
-            showToast(`Discount exceeds your allowed limit of ${maxDiscountPct}% (Max: ৳${maxAmt.toFixed(2)})`, 'error');
-            return;
+        let nextDiscount = 0;
+        
+        if (currentDiscount === 0) {
+            nextDiscount = Math.min(10, maxAmt);
+        } else if (currentDiscount === 10) {
+            nextDiscount = Math.min(20, maxAmt);
+        } else if (currentDiscount === 20) {
+            nextDiscount = Math.min(50, maxAmt);
+        } else {
+            nextDiscount = 0;
         }
 
-        setCart(cart.map(c => c.id === id ? { ...c, discount: amt } : c));
+        setCart(cart.map(c => c.id === id ? { ...c, discount: nextDiscount } : c));
+        if (nextDiscount > 0) {
+            showToast(`Item discount: ৳${nextDiscount}`, 'info');
+        } else {
+            showToast('Item discount cleared', 'info');
+        }
     };
 
     const removeItem = (id: string) => setCart(cart.filter(c => c.id !== id));
@@ -335,17 +345,29 @@ export default function POSPage() {
     const holdCart = async () => {
         if (cart.length === 0) return;
         if (!storeId) return;
-        const label = prompt('Label for this cart? (Optional)');
+        
+        const autoLabel = selectedCustomer?.name 
+            ? `${selectedCustomer.name} (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`
+            : `Hold #${heldCarts.length + 1} (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`;
+
         const hCart: HeldCart = {
-            id: uuidv4(), store_id: storeId, staff_id: staffId || undefined, label: label || 'Unlabeled Cart',
+            id: uuidv4(), 
+            store_id: storeId, 
+            staff_id: staffId || undefined, 
+            label: autoLabel,
             cart_data: { cart, overallDiscount, selectedCustomer },
-            created_at: new Date().toISOString(), updated_at: new Date().toISOString()
+            created_at: new Date().toISOString(), 
+            updated_at: new Date().toISOString()
         };
         await localDB.heldCarts.put(hCart);
-        await supabase.from('held_carts').insert(hCart);
+        try {
+            await supabase.from('held_carts').insert(hCart);
+        } catch (e) {}
+
         setCart([]);
         setOverallDiscount({ type: '৳', value: 0 });
         setSelectedCustomer(null);
+        showToast(`Cart held: ${autoLabel}`, 'success');
     };
 
     const resumeCart = async (hc: HeldCart) => {
@@ -1046,11 +1068,11 @@ export default function POSPage() {
                                                 {p.stock}
                                             </div>
                                         )}
-                                        <div style={{ height: 50, background: 'var(--background)', borderRadius: 'var(--radius)', marginBottom: '0.2rem', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                                            {p.thumbnail_url ? <img src={p.thumbnail_url} style={{ height: '100%', width: '100%', objectFit: 'cover' }} /> : <ImageIcon size={18} color="var(--text-muted)" />}
+                                        <div style={{ height: 60, background: 'var(--background)', borderRadius: 'var(--radius)', marginBottom: '0.25rem', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                                            {p.thumbnail_url ? <img src={p.thumbnail_url} style={{ height: '100%', width: '100%', objectFit: 'cover' }} alt="" /> : <ImageIcon size={20} color="var(--text-muted)" />}
                                         </div>
-                                        <div style={{ fontWeight: 600, fontSize: '0.75rem', lineHeight: 1.1 }}>{p.name}</div>
-                                        <div style={{ color: 'var(--primary)', fontWeight: 700, marginTop: 'auto', fontSize: '0.8rem' }}>৳ {p.selling_price}</div>
+                                        <div style={{ fontWeight: 600, fontSize: '0.78rem', lineHeight: 1.3, paddingTop: '3px', paddingBottom: '1px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', color: 'var(--text-main)' }}>{p.name}</div>
+                                        <div style={{ color: 'var(--primary)', fontWeight: 700, marginTop: '0.2rem', marginBottom: 0, paddingBottom: 0, fontSize: '0.82rem', lineHeight: 1 }}>৳ {p.selling_price}</div>
                                     </div>
                                 ))}
                             </div>
@@ -1149,11 +1171,11 @@ export default function POSPage() {
                                         {p.stock}
                                     </div>
                                 )}
-                                <div style={{ height: 80, background: 'var(--background)', borderRadius: 'var(--radius)', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                                    {p.thumbnail_url ? <img src={p.thumbnail_url} style={{ height: '100%', width: '100%', objectFit: 'cover' }} /> : <ImageIcon size={24} color="var(--text-muted)" />}
+                                <div style={{ height: 75, background: 'var(--background)', borderRadius: 'var(--radius)', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                                    {p.thumbnail_url ? <img src={p.thumbnail_url} style={{ height: '100%', width: '100%', objectFit: 'cover' }} alt="" /> : <ImageIcon size={22} color="var(--text-muted)" />}
                                 </div>
-                                <div style={{ fontWeight: 600, fontSize: '0.9rem', lineHeight: 1.2 }}>{p.name}</div>
-                                <div style={{ color: 'var(--primary)', fontWeight: 700, marginTop: 'auto' }}>৳ {p.selling_price}</div>
+                                <div style={{ fontWeight: 600, fontSize: '0.85rem', lineHeight: 1.3, paddingTop: '3px', paddingBottom: '1px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', color: 'var(--text-main)' }}>{p.name}</div>
+                                <div style={{ color: 'var(--primary)', fontWeight: 700, marginTop: '0.25rem', marginBottom: 0, paddingBottom: 0, fontSize: '0.85rem', lineHeight: 1 }}>৳ {p.selling_price}</div>
                             </div>
                         ))}
                     </div>

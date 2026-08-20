@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { 
-    Bell, Search, LogOut, RefreshCw, AlertTriangle, Package, User as UserIcon, FileText, X, Menu,
+    Bell, Search, LogOut, RefreshCw, AlertTriangle, Package, User as UserIcon, FileText, X, Menu, Building2,
     Home, ShoppingCart, QrCode, FolderTree, Archive, TruckIcon, Users, Truck, Wallet, BarChart2,
     FileBarChart, MonitorSmartphone, UsersRound, Gift, HelpCircle, Settings
 } from 'lucide-react';
@@ -26,13 +26,10 @@ const navItems = [
     { label: 'Sales', href: '/sales', icon: FileText, perm: null },
     { label: 'Customers', href: '/customers', icon: Users, perm: null },
     { label: 'Suppliers', href: '/suppliers', icon: Truck, perm: 'can_manage_suppliers' },
-    { label: 'Register', href: '/register', icon: Wallet, perm: null },
-    { label: 'Accounts', href: '/accounts', icon: BarChart2, perm: 'can_view_reports' },
     { label: 'Expenses', href: '/expenses', icon: Wallet, perm: 'can_manage_expenses' },
     { label: 'Reports', href: '/reports', icon: FileBarChart, perm: 'can_view_reports' },
     { label: 'QR Menu', href: '/qr-menu', icon: MonitorSmartphone, perm: 'can_manage_qr' },
     { label: 'HR & Staff', href: '/staff', icon: UsersRound, perm: 'can_manage_staff' },
-    { label: 'Offers', href: '/offers', icon: Gift, perm: 'can_manage_settings' },
     { label: 'Support', href: '/support', icon: HelpCircle, perm: null },
     { label: 'Settings', href: '/settings', icon: Settings, perm: 'can_manage_settings' },
 ];
@@ -50,6 +47,7 @@ export default function Header() {
     const [showLogoutModal, setShowLogoutModal] = useState(false);
 
     const searchRef = useRef<HTMLDivElement>(null);
+    const mobileSearchRef = useRef<HTMLDivElement>(null);
     const notifRef = useRef<HTMLDivElement>(null);
 
     // Live queries
@@ -61,6 +59,7 @@ export default function Header() {
 
     const bizSetting = settings.find(s => s.setting_key === 'business_info');
     const storeName = bizSetting?.setting_value?.name || 'My Store';
+    const storeLogo = bizSetting?.setting_value?.logo_url || '';
 
     const filteredNavItems = navItems.filter(item => {
         if (!item.perm) return true;
@@ -80,7 +79,7 @@ export default function Header() {
     // Close popovers on outside click
     useEffect(() => {
         function handleClickOutside(e: MouseEvent) {
-            if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+            if (searchRef.current && !searchRef.current.contains(e.target as Node) && mobileSearchRef.current && !mobileSearchRef.current.contains(e.target as Node)) {
                 setShowSearchPopover(false);
             }
             if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
@@ -132,6 +131,16 @@ export default function Header() {
     return (
         <>
             <header className={styles.header}>
+                {/* Mobile Header Store Name (Far Left on Mobile) */}
+                <div className={styles.mobileHeaderStore} title="Store Name">
+                    {storeLogo ? (
+                        <img src={storeLogo} className={styles.storeLogoThumb} alt="Logo" />
+                    ) : (
+                        <Building2 size={18} color="var(--primary)" />
+                    )}
+                    <span className={styles.storeNameText}>{storeName}</span>
+                </div>
+
                 {/* Search Input & Popover */}
                 <div className={styles.search} ref={searchRef}>
                     <Search size={20} className={styles.searchIcon} />
@@ -297,9 +306,14 @@ export default function Header() {
                         )}
                     </div>
 
-                    {/* Dynamic Store Name */}
-                    <div className={styles.storeSelect} title="Active Store Name">
-                        <span>🏬 {storeName}</span>
+                    {/* Dynamic Store Name (Desktop View) */}
+                    <div className={`${styles.storeSelect} ${styles.desktopOnlyStoreSelect}`} title="Active Store Name">
+                        {storeLogo ? (
+                            <img src={storeLogo} style={{ height: '22px', width: '22px', objectFit: 'contain', borderRadius: '4px' }} alt="Logo" />
+                        ) : (
+                            <Building2 size={16} color="var(--primary)" />
+                        )}
+                        <span>{storeName}</span>
                     </div>
 
                     {/* Mobile Menu / Close Toggle Button (Far Right of Top Bar) */}
@@ -320,7 +334,13 @@ export default function Header() {
                     <aside className={styles.mobileRightDrawer}>
                         <div className={styles.mobileDrawerHeader}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                                <div className={styles.mobileStoreBadge}>🏬</div>
+                                {storeLogo ? (
+                                    <img src={storeLogo} style={{ height: '28px', width: '28px', objectFit: 'contain', borderRadius: '4px' }} alt="Logo" />
+                                ) : (
+                                    <div className={styles.mobileStoreBadge}>
+                                        <Building2 size={18} color="var(--primary)" />
+                                    </div>
+                                )}
                                 <div>
                                     <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-main)', lineHeight: 1.2 }}>{storeName}</div>
                                     <div style={{ fontSize: '0.72rem', color: 'var(--primary)', fontWeight: 600 }}>QRPOS Navigation</div>
@@ -333,6 +353,96 @@ export default function Header() {
                             >
                                 <X size={22} color="var(--primary)" />
                             </button>
+                        </div>
+
+                        {/* Mobile Drawer Search Bar (Positioned right above Dashboard link) */}
+                        <div className={styles.mobileDrawerSearch} ref={mobileSearchRef}>
+                            <div className={styles.searchInner}>
+                                <Search size={16} className={styles.searchIcon} />
+                                <input 
+                                    type="text" 
+                                    placeholder="Search products, customers, invoices..." 
+                                    value={searchQuery}
+                                    onChange={(e) => {
+                                        setSearchQuery(e.target.value);
+                                        setShowSearchPopover(true);
+                                    }}
+                                    onFocus={() => setShowSearchPopover(true)}
+                                    style={{ paddingRight: searchQuery ? '1.8rem' : '0.75rem' }}
+                                />
+                                {searchQuery && (
+                                    <button 
+                                        onClick={() => {
+                                            setSearchQuery('');
+                                            setShowSearchPopover(false);
+                                        }}
+                                        className={styles.clearSearchBtn}
+                                        title="Clear search"
+                                    >
+                                        <X size={14} />
+                                    </button>
+                                )}
+                            </div>
+
+                            {showSearchPopover && trimmedQ.length > 0 && (
+                                <div className={styles.mobileSearchPopover}>
+                                    <div className={styles.popoverHeader}>
+                                        <span>Search Results</span>
+                                        <button onClick={() => setShowSearchPopover(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                                            <X size={15} />
+                                        </button>
+                                    </div>
+
+                                    {!hasSearchResults && (
+                                        <p style={{ padding: '0.75rem', fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center' }}>No results found for "{searchQuery}"</p>
+                                    )}
+
+                                    {matchedProducts.length > 0 && (
+                                        <div>
+                                            <div className={styles.popoverGroupTitle}>Products</div>
+                                            {matchedProducts.map(p => (
+                                                <Link key={p.id} href={`/products`} onClick={() => { setShowSearchPopover(false); setIsMobileMenuOpen(false); }} className={styles.popoverItem}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                        <Package size={15} color="var(--primary)" />
+                                                        <span style={{ fontSize: '0.85rem' }}>{p.name}</span>
+                                                    </div>
+                                                    <span style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--primary)' }}>৳ {p.selling_price}</span>
+                                                </Link>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {matchedCustomers.length > 0 && (
+                                        <div>
+                                            <div className={styles.popoverGroupTitle}>Customers</div>
+                                            {matchedCustomers.map(c => (
+                                                <Link key={c.id} href={`/customers`} onClick={() => { setShowSearchPopover(false); setIsMobileMenuOpen(false); }} className={styles.popoverItem}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                        <UserIcon size={15} color="#10b981" />
+                                                        <span style={{ fontSize: '0.85rem' }}>{c.name}</span>
+                                                    </div>
+                                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{c.phone}</span>
+                                                </Link>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {matchedSales.length > 0 && (
+                                        <div>
+                                            <div className={styles.popoverGroupTitle}>Invoices</div>
+                                            {matchedSales.map(s => (
+                                                <Link key={s.id} href={`/sales`} onClick={() => { setShowSearchPopover(false); setIsMobileMenuOpen(false); }} className={styles.popoverItem}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                        <FileText size={15} color="#f59e0b" />
+                                                        <span style={{ fontSize: '0.85rem' }}>{s.invoice_no}</span>
+                                                    </div>
+                                                    <span style={{ fontWeight: 600, fontSize: '0.85rem' }}>৳ {s.total}</span>
+                                                </Link>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
                         <nav className={styles.mobileDrawerNav}>

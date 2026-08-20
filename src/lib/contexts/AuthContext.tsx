@@ -56,7 +56,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
             if (session?.user) {
                 if (mounted) setUser(session.user)
-                await fetchProfile(session.user.id, mounted)
+                await fetchProfile(session.user.id, mounted, false)
             } else {
                 if (mounted) {
                     setUser(null)
@@ -72,7 +72,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             async (event, session) => {
                 if (session?.user) {
                     if (mounted) setUser(session.user)
-                    await fetchProfile(session.user.id, mounted)
+                    const isSignIn = event === 'SIGNED_IN';
+                    await fetchProfile(session.user.id, mounted, isSignIn)
                 } else {
                     if (mounted) {
                         setUser(null)
@@ -89,7 +90,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
     }, [])
 
-    async function fetchProfile(userId: string, mounted: boolean) {
+    async function fetchProfile(userId: string, mounted: boolean, isExplicitLogin: boolean = false) {
         try {
             const { data, error } = await supabase
                 .from('staff')
@@ -109,20 +110,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
             if (staffData && mounted) {
                 setProfile(staffData);
-                // Log login activity into Dexie activityLog
-                const now = new Date().toISOString();
-                const actData = {
-                    id: uuidv4(),
-                    store_id: staffData.store_id || 'default',
-                    staff_id: staffData.id,
-                    action: 'user_login',
-                    entity_type: 'staff',
-                    entity_id: staffData.id,
-                    details: { name: staffData.name, role: staffData.role },
-                    created_at: now
-                };
-                await localDB.activityLog.put(actData);
-                await localDB.staff.update(staffData.id, { last_login_at: now });
+                if (isExplicitLogin) {
+                    // Log login activity into Dexie activityLog ONLY on explicit login
+                    const now = new Date().toISOString();
+                    const actData = {
+                        id: uuidv4(),
+                        store_id: staffData.store_id || 'default',
+                        staff_id: staffData.id,
+                        action: 'user_login',
+                        entity_type: 'staff',
+                        entity_id: staffData.id,
+                        details: { name: staffData.name, role: staffData.role },
+                        created_at: now
+                    };
+                    await localDB.activityLog.put(actData);
+                    await localDB.staff.update(staffData.id, { last_login_at: now });
+                }
             }
         } catch (error) {
             console.error('Unexpected error fetching profile:', error)

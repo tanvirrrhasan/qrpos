@@ -344,10 +344,10 @@ export default function CustomersPage() {
                             cursor: 'pointer'
                         }}
                     >
-                        <option value="all">👥 All Customers</option>
-                        <option value="due">⚠️ Has Due (বাকি আছে)</option>
-                        <option value="no-due">✅ No Due (বাকি নেই)</option>
-                        <option value="top">⭐ Top Spenders (সর্বোচ্চ কেনাকাটা)</option>
+                        <option value="all">All Customers</option>
+                        <option value="due">Has Due (বাকি আছে)</option>
+                        <option value="no-due">No Due (বাকি নেই)</option>
+                        <option value="top">Top Spenders (সর্বোচ্চ কেনাকাটা)</option>
                     </select>
                 </div>
             </div>

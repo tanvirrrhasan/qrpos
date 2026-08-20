@@ -254,10 +254,10 @@ function SupplierProfileContent() {
                         <div style={{marginBottom: '1rem'}}>
                             <label style={{display: 'block', fontWeight: 600, marginBottom: '0.5rem'}}>Payment Method</label>
                             <select value={payMethod} onChange={e => setPayMethod(e.target.value)} style={{width: '100%', padding: '0.75rem', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'var(--background)'}}>
-                                <option value="cash">💵 Cash (নগদ)</option>
-                                <option value="bank">🏦 Bank Transfer</option>
-                                <option value="bkash">📱 bKash</option>
-                                <option value="nagad">📱 Nagad</option>
+                                <option value="cash">Cash (নগদ)</option>
+                                <option value="bank">Bank Transfer</option>
+                                <option value="bkash">bKash</option>
+                                <option value="nagad">Nagad</option>
                             </select>
                         </div>
 

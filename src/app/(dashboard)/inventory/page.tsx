@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react';
-import { X, History, Edit3, ChevronDown, ChevronRight, Image as ImageIcon } from 'lucide-react';
+import { X, History, Edit3, ChevronDown, ChevronRight, Image as ImageIcon, Plus, Minus, Check } from 'lucide-react';
 import styles from './inventory.module.css';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { localDB } from '@/lib/db/local';
@@ -22,8 +22,8 @@ export default function InventoryPage() {
 
     // Adjust Form State
     const [adjType, setAdjType] = useState<'+'|'-'|'='>('+');
-    const [adjQty, setAdjQty] = useState(0);
-    const [adjReason, setAdjReason] = useState('Physical Count মেলানো');
+    const [adjQty, setAdjQty] = useState<string>('');
+    const [adjReason, setAdjReason] = useState('');
     const [adjNotes, setAdjNotes] = useState('');
     const [saving, setSaving] = useState(false);
 
@@ -57,6 +57,14 @@ export default function InventoryPage() {
         }
         fetchAuth();
     }, []);
+
+    const openAdjustModal = (product: Product, variant: ProductVariant | null = null) => {
+        setAdjType('+');
+        setAdjQty('');
+        setAdjReason('');
+        setAdjNotes('');
+        setAdjustModal({ isOpen: true, product, variant });
+    };
 
     // Derived stats
     let totalValue = 0;
@@ -93,8 +101,10 @@ export default function InventoryPage() {
     const handleAdjustSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!storeId || !adjustModal.product) return;
-        if (adjQty < 0) return alert('Quantity cannot be negative');
-        if (adjType !== '=' && adjQty === 0) return alert('Quantity must be greater than 0');
+        
+        const qtyNum = parseFloat(adjQty);
+        if (isNaN(qtyNum) || qtyNum < 0) return alert('অনুগ্রহ করে সঠিক পরিমাণ লিখুন (Please enter valid quantity)');
+        if (adjType !== '=' && qtyNum === 0) return alert('পরিমাণ অবশ্যই ০ এর চেয়ে বেশি হতে হবে');
 
         setSaving(true);
         try {
@@ -106,14 +116,14 @@ export default function InventoryPage() {
             let qtyChange = 0;
 
             if (adjType === '+') {
-                newStock = currentStock + adjQty;
-                qtyChange = adjQty;
+                newStock = currentStock + qtyNum;
+                qtyChange = qtyNum;
             } else if (adjType === '-') {
-                newStock = currentStock - adjQty;
-                qtyChange = -adjQty;
-                if (newStock < 0) throw new Error('Stock cannot be negative');
+                newStock = currentStock - qtyNum;
+                qtyChange = -qtyNum;
+                if (newStock < 0) throw new Error('স্টক ০ এর নিচে নামানো যাবে না (Stock cannot be negative)');
             } else if (adjType === '=') {
-                newStock = adjQty;
+                newStock = qtyNum;
                 qtyChange = newStock - currentStock;
             }
 
@@ -122,6 +132,8 @@ export default function InventoryPage() {
                 setSaving(false);
                 return;
             }
+
+            const selectedReason = adjReason || 'General Stock Adjustment';
 
             const adjId = uuidv4();
             const histId = uuidv4();
@@ -138,7 +150,7 @@ export default function InventoryPage() {
             // Record Adjustment
             const adjPayload = {
                 id: adjId, store_id: storeId, product_id: product.id, variant_id: variant?.id || undefined,
-                staff_id: userId || undefined, reason: adjReason, adjustment_type: adjType, quantity: adjQty, notes: adjNotes,
+                staff_id: userId || undefined, reason: selectedReason, adjustment_type: adjType, quantity: qtyNum, notes: adjNotes,
                 created_at: new Date().toISOString()
             };
             await supabase.from('stock_adjustments').insert(adjPayload);
@@ -149,7 +161,7 @@ export default function InventoryPage() {
                 id: histId, store_id: storeId, product_id: product.id, variant_id: variant?.id || undefined,
                 action: 'adjustment', quantity_change: qtyChange, stock_before: currentStock, stock_after: newStock,
                 staff_id: userId || undefined,
-                notes: `${adjReason} - ${adjNotes}`, created_at: new Date().toISOString()
+                notes: adjNotes ? `${selectedReason} - ${adjNotes}` : selectedReason, created_at: new Date().toISOString()
             };
             await supabase.from('stock_history').insert(histPayload);
             await localDB.stock_history.put(histPayload);
@@ -169,7 +181,7 @@ export default function InventoryPage() {
                     change: qtyChange,
                     stock_before: currentStock,
                     stock_after: newStock,
-                    reason: adjReason
+                    reason: selectedReason
                 },
                 created_at: new Date().toISOString()
             };
@@ -182,7 +194,8 @@ export default function InventoryPage() {
             
             // Reset form
             setAdjType('+');
-            setAdjQty(0);
+            setAdjQty('');
+            setAdjReason('');
             setAdjNotes('');
         } catch (err: any) {
             alert('Error: ' + err.message);
@@ -195,9 +208,10 @@ export default function InventoryPage() {
     let previewNewStock = 0;
     if (adjustModal.isOpen) {
         const current = adjustModal.variant ? adjustModal.variant.stock : adjustModal.product?.stock || 0;
-        if (adjType === '+') previewNewStock = current + (Number(adjQty) || 0);
-        if (adjType === '-') previewNewStock = current - (Number(adjQty) || 0);
-        if (adjType === '=') previewNewStock = (Number(adjQty) || 0);
+        const qtyNum = parseFloat(adjQty) || 0;
+        if (adjType === '+') previewNewStock = current + qtyNum;
+        if (adjType === '-') previewNewStock = current - qtyNum;
+        if (adjType === '=') previewNewStock = qtyNum;
     }
 
     const filteredHistory = stockHistory
@@ -285,7 +299,7 @@ export default function InventoryPage() {
                                     <td>
                                         {!item.has_variants && (
                                             <div className={styles.actions}>
-                                                <button className={styles.actionBtn} onClick={() => setAdjustModal({isOpen: true, product: item, variant: null})}><Edit3 size={14} style={{display:'inline', marginRight:4}}/> Adjust</button>
+                                                <button className={styles.actionBtn} onClick={() => openAdjustModal(item, null)}><Edit3 size={14} style={{display:'inline', marginRight:4}}/> Adjust</button>
                                                 <button className={styles.actionBtn} onClick={() => setHistoryModal({isOpen: true, product: item, variant: null})}><History size={14} style={{display:'inline', marginRight:4}}/> History</button>
                                             </div>
                                         )}
@@ -307,7 +321,7 @@ export default function InventoryPage() {
                                         <td>৳ {(v.stock * v.purchase_price).toFixed(2)}</td>
                                         <td>
                                             <div className={styles.actions}>
-                                                <button className={styles.actionBtn} onClick={() => setAdjustModal({isOpen: true, product: item, variant: v as any})}><Edit3 size={14} style={{display:'inline', marginRight:4}}/> Adjust</button>
+                                                <button className={styles.actionBtn} onClick={() => openAdjustModal(item, v as any)}><Edit3 size={14} style={{display:'inline', marginRight:4}}/> Adjust</button>
                                                 <button className={styles.actionBtn} onClick={() => setHistoryModal({isOpen: true, product: item, variant: v as any})}><History size={14} style={{display:'inline', marginRight:4}}/> History</button>
                                             </div>
                                         </td>
@@ -339,29 +353,61 @@ export default function InventoryPage() {
                         <form onSubmit={handleAdjustSubmit}>
                             <div className={styles.formGroup}>
                                 <label>Adjustment Type</label>
-                                <div className={styles.radioGroup}>
-                                    <label><input type="radio" checked={adjType==='+'} onChange={() => setAdjType('+')} /> Add (+)</label>
-                                    <label><input type="radio" checked={adjType==='-'} onChange={() => setAdjType('-')} /> Remove (-)</label>
-                                    <label><input type="radio" checked={adjType==='='} onChange={() => setAdjType('=')} /> Set Exact (=)</label>
+                                <div className={styles.typeSegmentGroup}>
+                                    <button 
+                                        type="button" 
+                                        className={`${styles.typeBtn} ${adjType === '+' ? styles.activeAdd : ''}`} 
+                                        onClick={() => setAdjType('+')}
+                                    >
+                                        <Plus size={16} />
+                                        <span>Add</span>
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        className={`${styles.typeBtn} ${adjType === '-' ? styles.activeRemove : ''}`} 
+                                        onClick={() => setAdjType('-')}
+                                    >
+                                        <Minus size={16} />
+                                        <span>Remove</span>
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        className={`${styles.typeBtn} ${adjType === '=' ? styles.activeExact : ''}`} 
+                                        onClick={() => setAdjType('=')}
+                                    >
+                                        <Check size={16} />
+                                        <span>Set Exact</span>
+                                    </button>
                                 </div>
                             </div>
 
                             <div className={styles.formGroup}>
-                                <label>Quantity</label>
-                                <input type="number" step="0.001" min="0" value={adjQty} onChange={e => setAdjQty(Number(e.target.value))} required />
+                                <label>Quantity (পরিমাণ)</label>
+                                <input 
+                                    type="number" 
+                                    step="any" 
+                                    min="0" 
+                                    value={adjQty} 
+                                    onChange={e => setAdjQty(e.target.value)} 
+                                    placeholder="পরিমাণ লিখুন (e.g. 5)" 
+                                    required 
+                                />
                                 <div style={{marginTop: '0.5rem', fontSize: '0.875rem', color: 'var(--text-muted)'}}>
                                     New Stock will be: <strong>{previewNewStock}</strong> {adjustModal.product.unit}
                                 </div>
                             </div>
 
                             <div className={styles.formGroup}>
-                                <label>Reason</label>
-                                <select value={adjReason} onChange={e => setAdjReason(e.target.value)} required>
-                                    <option>Physical Count মেলানো</option>
-                                    <option>পণ্য নষ্ট (Damage)</option>
-                                    <option>পণ্য হারিয়ে গেছে (Loss)</option>
-                                    <option>কাস্টমার ফেরত (Return)</option>
-                                    <option>অন্যান্য (Other)</option>
+                                <label>Reason (কারণ)</label>
+                                <select value={adjReason} onChange={e => setAdjReason(e.target.value)}>
+                                    <option value="">-- কারণ নির্বাচন করুন --</option>
+                                    <option value="স্টক মেলানো বা গণনা">স্টক মেলানো বা গণনা</option>
+                                    <option value="পণ্য নষ্ট বা মেয়াদোত্তীর্ণ">পণ্য নষ্ট বা মেয়াদোত্তীর্ণ</option>
+                                    <option value="নতুন স্টক গ্রহণ">নতুন স্টক গ্রহণ</option>
+                                    <option value="পণ্য চুরি বা হারিয়ে যাওয়া">পণ্য চুরি বা হারিয়ে যাওয়া</option>
+                                    <option value="কাস্টমার ফেরত">কাস্টমার ফেরত</option>
+                                    <option value="অভ্যন্তরীণ ব্যবহার">অভ্যন্তরীণ ব্যবহার</option>
+                                    <option value="অন্যান্য সংশোধন">অন্যান্য সংশোধন</option>
                                 </select>
                             </div>
 

@@ -49,10 +49,12 @@ export default function StaffPage() {
     const activities = useLiveQuery(async () => {
         if (!showActivityLog) return [];
         const targetStaff = staffMembers.find(s => s.id === showActivityLog);
+        if (!targetStaff) return [];
         const allLogs = await localDB.activityLog.toArray();
         return allLogs.filter(act => {
-            if (!targetStaff) return true;
-            return act.staff_id === targetStaff.id || act.staff_id === targetStaff.auth_user_id || !act.staff_id;
+            return act.staff_id === targetStaff.id || 
+                   (targetStaff.auth_user_id && act.staff_id === targetStaff.auth_user_id) ||
+                   (act.entity_type === 'staff' && act.entity_id === targetStaff.id);
         }).sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
     }, [showActivityLog, staffMembers]) || [];
 
@@ -96,28 +98,30 @@ export default function StaffPage() {
         try {
             let realAuthUserId = editingStaff?.auth_user_id || null;
 
-            // If creating a new staff member and password is provided, create real Supabase Auth user!
-            if (!editingStaff && formEmail && formPassword) {
-                const { data: authData, error: authErr } = await supabase.auth.signUp({
-                    email: formEmail.trim(),
-                    password: formPassword,
-                    options: {
-                        data: {
-                            name: formName,
-                            role: formRole
-                        }
-                    }
+            // If email is provided, call create_staff_auth_user RPC to handle auth user & confirmation
+            if (formEmail && (formPassword || !editingStaff)) {
+                const { data: rpcData, error: rpcErr } = await supabase.rpc('create_staff_auth_user', {
+                    p_email: formEmail.trim(),
+                    p_password: formPassword || '123456',
+                    p_name: formName.trim(),
+                    p_role: formRole,
+                    p_store_id: storeId,
+                    p_phone: formPhone.trim() || null,
+                    p_pin: formPin.trim() || null,
+                    p_permissions: permissions
                 });
 
-                if (authErr) {
-                    console.warn('Supabase Auth Sign Up Note:', authErr.message);
-                    if (!authErr.message.includes('already registered')) {
-                        throw new Error('Auth Account Creation Failed: ' + authErr.message);
-                    }
+                if (rpcErr) {
+                    console.error('RPC Error:', rpcErr);
+                    throw new Error('Database error creating staff auth: ' + rpcErr.message);
                 }
 
-                if (authData?.user?.id) {
-                    realAuthUserId = authData.user.id;
+                if (rpcData && !rpcData.success) {
+                    throw new Error(rpcData.message || 'Failed to create staff authentication');
+                }
+
+                if (rpcData?.user_id) {
+                    realAuthUserId = rpcData.user_id;
                 }
             }
 

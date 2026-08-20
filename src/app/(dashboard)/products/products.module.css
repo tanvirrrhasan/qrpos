@@ -37,12 +37,15 @@
 
 .toolbar {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
     gap: 1rem;
     background-color: var(--surface);
     padding: 1rem;
     border-radius: var(--radius-lg);
     border: 1px solid var(--border);
+    flex-wrap: wrap;
 }
 
 .toolbarRow {
@@ -257,6 +260,11 @@
 }
 
 @media (max-width: 768px) {
+    .toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
     /* Mobile Table Card View */
     .tableContainer {
         background: transparent;

@@ -218,9 +218,17 @@
 }
 
 .storeSelect {
-    font-weight: 500;
+    font-weight: 600;
     color: var(--text-main);
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.9rem;
+}
+
+.mobileHeaderStore {
+    display: none;
 }
 
 /* Mobile Menu Toggle Button */
@@ -236,16 +244,46 @@
     .header {
         height: 55px;
         padding: 0 0.75rem;
+        justify-content: space-between;
+    }
+
+    .mobileHeaderStore {
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+        font-weight: 700;
+        font-size: 0.92rem;
+        color: var(--text-main);
+        min-width: 0;
+        flex: 1;
+    }
+
+    .storeLogoThumb {
+        height: 24px;
+        width: 24px;
+        object-fit: contain;
+        border-radius: 4px;
+        flex-shrink: 0;
+    }
+
+    .storeNameText {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 140px;
+    }
+
+    .desktopOnlyStoreSelect {
+        display: none !important;
     }
     
     .search {
-        width: auto;
-        flex: 1;
-        margin-right: 0.5rem;
+        display: none;
     }
     
     .actions {
-        gap: 0.75rem;
+        margin-left: auto;
+        gap: 0.6rem;
     }
     
     .pageContent {
@@ -345,10 +383,67 @@
 .mobileDrawerNav {
     flex: 1;
     overflow-y: auto;
-    padding: 0.75rem;
+    padding: 0.5rem 0.75rem 0.75rem 0.75rem;
     display: flex;
     flex-direction: column;
     gap: 0.3rem;
+}
+
+.mobileDrawerSearch {
+    padding: 0.75rem 0.75rem 0.25rem 0.75rem;
+    position: relative;
+    flex-shrink: 0;
+}
+
+.searchInner {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.searchInner input {
+    width: 100%;
+    padding: 0.55rem 0.75rem 0.55rem 2.2rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background-color: var(--background);
+    color: var(--text-main);
+    font-size: 0.85rem;
+    outline: none;
+}
+
+.searchInner input:focus {
+    border-color: var(--primary);
+}
+
+.clearSearchBtn {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px;
+}
+
+.mobileSearchPopover {
+    position: absolute;
+    top: 100%;
+    left: 0.75rem;
+    right: 0.75rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+    z-index: 2010;
+    max-height: 280px;
+    overflow-y: auto;
+    margin-top: 4px;
 }
 
 .mobileNavItem {
@@ -406,6 +501,17 @@
     flex: 1;
     overflow-y: auto;
     padding: 1.25rem;
+}
+
+.posPageContent {
+    padding: 0 !important;
+    overflow: hidden !important;
+}
+
+@media (max-width: 768px) {
+    .posPageContent {
+        padding: 0 !important;
+    }
 }
 
 /* Header Popovers & Actions */

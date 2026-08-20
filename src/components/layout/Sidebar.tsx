@@ -18,13 +18,10 @@ const navItems = [
     { label: 'Sales', href: '/sales', icon: FileText, perm: null },
     { label: 'Customers', href: '/customers', icon: Users, perm: null },
     { label: 'Suppliers', href: '/suppliers', icon: Truck, perm: 'can_manage_suppliers' },
-    { label: 'Register', href: '/register', icon: Wallet, perm: null },
-    { label: 'Accounts', href: '/accounts', icon: BarChart2, perm: 'can_view_reports' },
     { label: 'Expenses', href: '/expenses', icon: Wallet, perm: 'can_manage_expenses' },
     { label: 'Reports', href: '/reports', icon: FileBarChart, perm: 'can_view_reports' },
     { label: 'QR Menu', href: '/qr-menu', icon: MonitorSmartphone, perm: 'can_manage_qr' },
     { label: 'HR & Staff', href: '/staff', icon: UsersRound, perm: 'can_manage_staff' },
-    { label: 'Offers', href: '/offers', icon: Gift, perm: 'can_manage_settings' },
     { label: 'Support', href: '/support', icon: HelpCircle, perm: null },
     { label: 'Settings', href: '/settings', icon: Settings, perm: 'can_manage_settings' },
 ];

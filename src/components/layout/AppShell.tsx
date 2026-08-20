@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import BottomNav from './BottomNav';
@@ -13,6 +14,8 @@ interface AppShellProps {
 }
 
 export default function AppShell({ children }: AppShellProps) {
+    const pathname = usePathname();
+    const isPosPage = pathname === '/pos';
     const [debugInfo, setDebugInfo] = useState<any>({});
 
     useEffect(() => {
@@ -46,7 +49,7 @@ export default function AppShell({ children }: AppShellProps) {
             <Sidebar />
             <div className={styles.mainContent}>
                 <Header />
-                <main className={styles.pageContent}>
+                <main className={`${styles.pageContent} ${isPosPage ? styles.posPageContent : ''}`}>
                     {children}
                 </main>
                 <BottomNav />
