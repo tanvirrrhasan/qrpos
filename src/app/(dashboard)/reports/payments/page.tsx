@@ -14,6 +14,7 @@ export default function PaymentsReportPage() {
     const [dateRange, setDateRange] = useState('this_month');
 
     const allSales = useLiveQuery(() => localDB.sales.toArray()) || [];
+    const salePayments = useLiveQuery(() => localDB.salePayments.toArray()) || [];
 
     const filteredSales = useMemo(() => {
         const start = new Date();
@@ -44,21 +45,24 @@ export default function PaymentsReportPage() {
 
     const paymentBreakdown = useMemo(() => {
         const stats: Record<string, { method: string; count: number; total: number }> = {};
+        const saleSet = new Set(filteredSales.map(s => s.id));
 
-        filteredSales.forEach(s => {
-            const pm = s.payment_method || 'cash';
-            const formattedMethod = pm.charAt(0).toUpperCase() + pm.slice(1);
+        salePayments.forEach(p => {
+            if (saleSet.has(p.sale_id)) {
+                const pm = p.payment_method || 'cash';
+                const formattedMethod = pm.charAt(0).toUpperCase() + pm.slice(1);
 
-            if (!stats[formattedMethod]) {
-                stats[formattedMethod] = { method: formattedMethod, count: 0, total: 0 };
+                if (!stats[formattedMethod]) {
+                    stats[formattedMethod] = { method: formattedMethod, count: 0, total: 0 };
+                }
+
+                stats[formattedMethod].count += 1;
+                stats[formattedMethod].total += Number(p.amount || 0);
             }
-
-            stats[formattedMethod].count += 1;
-            stats[formattedMethod].total += s.paid_amount || (s.total - s.due_amount);
         });
 
         return Object.values(stats).sort((a, b) => b.total - a.total);
-    }, [filteredSales]);
+    }, [filteredSales, salePayments]);
 
     const totalCollected = useMemo(() => {
         return paymentBreakdown.reduce((sum, p) => sum + p.total, 0);

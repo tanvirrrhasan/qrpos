@@ -173,7 +173,7 @@ export default function CategorySalesReportPage() {
                     <div style={{height: '280px', width: '100%'}}>
                         <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
-                                <Pie data={categorySalesData} dataKey="revenue" nameKey="category" cx="50%" cy="50%" outerRadius={100} label={(e) => `${e.category}: ৳${e.value.toFixed(0)}`}>
+                                <Pie data={categorySalesData} dataKey="revenue" nameKey="category" cx="50%" cy="50%" outerRadius={100} label={(e: any) => `${e.category || ''}: ৳${(e.value || 0).toFixed(0)}`}>
                                     {categorySalesData.map((_, index) => (
                                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                     ))}

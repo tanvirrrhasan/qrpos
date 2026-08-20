@@ -17,7 +17,7 @@ export default function StaffPerformanceReportPage() {
     const staffMap = useMemo(() => {
         const map: Record<string, { name: string; role: string }> = {};
         staffList.forEach(s => {
-            map[s.id] = { name: s.full_name, role: s.role };
+            map[s.id] = { name: s.name, role: s.role };
         });
         return map;
     }, [staffList]);

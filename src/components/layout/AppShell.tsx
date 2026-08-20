@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import BottomNav from './BottomNav';
+import CapacitorNativeHandler from './CapacitorNativeHandler';
 import { syncInitialData } from '@/lib/db/sync';
 import { supabase } from '@/lib/supabase/client';
 import styles from './layout.module.css';
@@ -46,6 +47,7 @@ export default function AppShell({ children }: AppShellProps) {
 
     return (
         <div className={styles.appShell}>
+            <CapacitorNativeHandler />
             <Sidebar />
             <div className={styles.mainContent}>
                 <Header />

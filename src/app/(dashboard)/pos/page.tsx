@@ -346,8 +346,9 @@ export default function POSPage() {
         if (cart.length === 0) return;
         if (!storeId) return;
         
-        const autoLabel = selectedCustomer?.name 
-            ? `${selectedCustomer.name} (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`
+        const custObj = selectedCustomer ? customers.find(c => c.id === selectedCustomer) : null;
+        const autoLabel = custObj?.name 
+            ? `${custObj.name} (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`
             : `Hold #${heldCarts.length + 1} (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`;
 
         const hCart: HeldCart = {

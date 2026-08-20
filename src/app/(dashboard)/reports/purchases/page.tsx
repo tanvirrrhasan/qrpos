@@ -47,7 +47,7 @@ export default function PurchaseReportPage() {
     }, [purchases, dateRange]);
 
     const metrics = useMemo(() => {
-        const totalAmount = filteredPurchases.reduce((sum, p) => sum + Number(p.total_amount || 0), 0);
+        const totalAmount = filteredPurchases.reduce((sum, p) => sum + Number(p.total || 0), 0);
         const totalPaid = filteredPurchases.reduce((sum, p) => sum + Number(p.paid_amount || 0), 0);
         const totalDue = filteredPurchases.reduce((sum, p) => sum + Number(p.due_amount || 0), 0);
         const count = filteredPurchases.length;
@@ -63,13 +63,13 @@ export default function PurchaseReportPage() {
         filteredPurchases.forEach(p => {
             const supName = p.supplier_id && supplierMap[p.supplier_id] ? supplierMap[p.supplier_id] : 'General Supplier';
             const row = [
-                `"${(p.invoice_no || p.id.slice(0,8)).replace(/"/g, '""')}"`,
+                `"${(p.reference_no || p.id.slice(0,8)).replace(/"/g, '""')}"`,
                 `"${supName.replace(/"/g, '""')}"`,
                 new Date(p.purchase_date || p.created_at).toLocaleString().replace(/,/g, ''),
-                Number(p.total_amount || 0).toFixed(2),
+                Number(p.total || 0).toFixed(2),
                 Number(p.paid_amount || 0).toFixed(2),
                 Number(p.due_amount || 0).toFixed(2),
-                p.status || 'Received'
+                p.payment_status || 'Paid'
             ];
             csvRows.push(row.join(','));
         });
@@ -159,11 +159,11 @@ export default function PurchaseReportPage() {
                                 const supName = p.supplier_id && supplierMap[p.supplier_id] ? supplierMap[p.supplier_id] : 'General Supplier';
                                 return (
                                     <tr key={i} style={{borderBottom: '1px solid var(--border)'}}>
-                                        <td style={{padding: '1rem', fontWeight: 600, color: 'var(--primary)'}}>{p.invoice_no || p.id.slice(0,8)}</td>
+                                        <td style={{padding: '1rem', fontWeight: 600, color: 'var(--primary)'}}>{p.reference_no || p.id.slice(0,8)}</td>
                                         <td style={{padding: '1rem', color: 'var(--text-main)'}}>{supName}</td>
                                         <td style={{padding: '1rem', color: 'var(--text-muted)'}}>{new Date(p.purchase_date || p.created_at).toLocaleDateString()}</td>
                                         <td style={{padding: '1rem', textAlign: 'right', fontWeight: 700, color: 'var(--text-main)'}}>
-                                            ৳ {Number(p.total_amount || 0).toFixed(2)}
+                                            ৳ {Number(p.total || 0).toFixed(2)}
                                         </td>
                                         <td style={{padding: '1rem', textAlign: 'right', fontSize: '0.88rem'}}>
                                             <span style={{color: '#10b981', fontWeight: 600}}>৳ {Number(p.paid_amount || 0).toFixed(0)}</span>

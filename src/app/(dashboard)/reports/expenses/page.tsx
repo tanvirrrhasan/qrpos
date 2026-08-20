@@ -57,7 +57,7 @@ export default function ExpensesReportPage() {
     const categoryBreakdown = useMemo(() => {
         const stats: Record<string, number> = {};
         filteredExpenses.forEach(e => {
-            const catName = e.category_id && categoryMap[e.category_id] ? categoryMap[e.category_id] : (e.title || 'General Expense');
+            const catName = e.category_id && categoryMap[e.category_id] ? categoryMap[e.category_id] : (e.description || 'General Expense');
             stats[catName] = (stats[catName] || 0) + Number(e.amount || 0);
         });
 
@@ -76,11 +76,11 @@ export default function ExpensesReportPage() {
         filteredExpenses.forEach(e => {
             const catName = e.category_id && categoryMap[e.category_id] ? categoryMap[e.category_id] : 'General';
             const row = [
-                `"${(e.title || 'Expense').replace(/"/g, '""')}"`,
+                `"${(e.description || 'Expense').replace(/"/g, '""')}"`,
                 `"${catName.replace(/"/g, '""')}"`,
                 new Date(e.expense_date || e.created_at).toLocaleString().replace(/,/g, ''),
                 Number(e.amount || 0).toFixed(2),
-                `"${(e.notes || '').replace(/"/g, '""')}"`
+                `"${(e.description || '').replace(/"/g, '""')}"`
             ];
             csvRows.push(row.join(','));
         });
@@ -187,7 +187,7 @@ export default function ExpensesReportPage() {
                                 const catName = exp.category_id && categoryMap[exp.category_id] ? categoryMap[exp.category_id] : 'General';
                                 return (
                                     <tr key={i} style={{borderBottom: '1px solid var(--border)'}}>
-                                        <td style={{padding: '1rem', fontWeight: 600, color: 'var(--text-main)'}}>{exp.title || 'Expense'}</td>
+                                        <td style={{padding: '1rem', fontWeight: 600, color: 'var(--text-main)'}}>{exp.description || 'Expense'}</td>
                                         <td style={{padding: '1rem', color: 'var(--text-muted)'}}>{catName}</td>
                                         <td style={{padding: '1rem', color: 'var(--text-muted)'}}>{new Date(exp.expense_date || exp.created_at).toLocaleDateString()}</td>
                                         <td style={{padding: '1rem', textAlign: 'right', fontWeight: 700, color: '#ef4444'}}>
